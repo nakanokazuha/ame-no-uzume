@@ -612,7 +612,7 @@ git commit -m "feat: define dashboard event contracts"
 - Produces: `validate_asset_pack(root: Path, manifest: PackManifest) -> None`
 - Produces: six semantic anchors and a walkable isometric map
 
-- [ ] **Step 1: Write failing validation tests**
+- [x] **Step 1: Write failing validation tests**
 
 ```python
 from pathlib import Path
@@ -644,13 +644,13 @@ def test_missing_atlas_is_rejected(tmp_path: Path) -> None:
         load_and_validate_pack(tmp_path)
 ```
 
-- [ ] **Step 2: Run validation tests and verify failure**
+- [x] **Step 2: Run validation tests and verify failure**
 
 Run: `uv run --package yume-api pytest apps/api/tests/assets/test_validator.py -q`
 
 Expected: FAIL because the pack models and validator do not exist.
 
-- [ ] **Step 3: Implement manifest and dashboard models**
+- [x] **Step 3: Implement manifest and dashboard models**
 
 ```python
 from typing import Literal
@@ -703,7 +703,7 @@ class DashboardConfig(BaseModel):
     room_rules: list[RoomRule] = Field(default_factory=list)
 ```
 
-- [ ] **Step 4: Implement strict file and semantic validation**
+- [x] **Step 4: Implement strict file and semantic validation**
 
 ```python
 import json
@@ -733,7 +733,15 @@ def load_and_validate_pack(root: Path) -> PackManifest:
     return manifest
 ```
 
-- [ ] **Step 5: Create the production-shaped placeholder manifest**
+The implementation must also fulfill the approved asset-pack contract: reject
+absolute and escaping paths; validate 64×32 tiles and 32×48 character canvases;
+validate tileset and atlas PNG paths, dimensions, and atlas frame bounds; require
+the listed animation aliases and their referenced frames; and require complete
+Tiled layers with walkable, mutually reachable semantic anchors. Convert expected
+manifest, JSON, and file failures to `AssetPackError` so startup diagnostics can
+report invalid packs without crashing.
+
+- [x] **Step 5: Create the production-shaped placeholder manifest**
 
 ```json
 {
@@ -777,7 +785,7 @@ def load_and_validate_pack(root: Path) -> PackManifest:
 }
 ```
 
-- [ ] **Step 6: Generate deterministic placeholder PNGs**
+- [x] **Step 6: Generate deterministic placeholder PNGs**
 
 Add `pngjs` to the root dev dependencies and implement:
 
@@ -886,7 +894,7 @@ writeFileSync(
 
 Run: `node tools/generate-placeholder-assets.mjs`
 
-- [ ] **Step 7: Verify the placeholder pack**
+- [x] **Step 7: Verify the placeholder pack**
 
 Run:
 
@@ -898,7 +906,7 @@ git diff --exit-code asset-packs/placeholder
 
 Expected: tests pass and regeneration produces no diff.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add apps/api/src/yume_api/config apps/api/src/yume_api/assets apps/api/tests/assets config asset-packs/placeholder tools package.json pnpm-lock.yaml

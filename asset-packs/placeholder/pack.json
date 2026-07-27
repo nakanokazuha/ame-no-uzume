@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "id": "placeholder",
+  "name": "Yume Placeholder Office",
+  "tile": {"width": 64, "height": 32},
+  "character": {"width": 32, "height": 48},
+  "map": "maps/office.json",
+  "atlas": "atlases/characters.json",
+  "anchors": {
+    "ceo": {"x": 2, "y": 7},
+    "memory": {"x": 3, "y": 3},
+    "lobby": {"x": 8, "y": 3},
+    "research": {"x": 9, "y": 7},
+    "work": {"x": 3, "y": 10},
+    "automation": {"x": 8, "y": 10}
+  },
+  "animations": {
+    "yume-idle-sw": [0, 1],
+    "yume-walk-sw": [14, 15, 16, 17],
+    "yume-think-sw": [18, 19, 20, 21],
+    "yume-work-sw": [22, 23, 24, 25],
+    "yume-waiting-sw": [18, 19],
+    "yume-success-sw": [26, 27, 28],
+    "yume-failed-sw": [29, 30],
+    "scheduled-idle-sw": [0, 1],
+    "scheduled-walk-sw": [14, 15, 16, 17],
+    "scheduled-work-sw": [22, 23, 24, 25],
+    "scheduled-waiting-sw": [18, 19],
+    "scheduled-failed-sw": [29, 30],
+    "worker-idle-sw": [0, 1],
+    "worker-walk-sw": [14, 15, 16, 17],
+    "worker-work-sw": [22, 23, 24, 25],
+    "worker-enter-sw": [14, 15, 16, 17],
+    "worker-exit-sw": [14, 15, 16, 17],
+    "worker-report-sw": [26, 27, 28],
+    "worker-waiting-sw": [18, 19],
+    "worker-failed-sw": [29, 30]
+  }
+}

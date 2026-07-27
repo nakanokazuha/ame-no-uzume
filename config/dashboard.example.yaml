@@ -1,0 +1,10 @@
+asset_pack: placeholder
+hermes_base_url: http://127.0.0.1:8642
+data_dir: /data
+room_rules:
+  - pattern: '^memory\.'
+    room: memory
+  - pattern: '^browser\.'
+    room: research
+  - pattern: '^cron\.'
+    room: automation
