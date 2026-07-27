@@ -91,7 +91,7 @@
 - Produces: `yume_api.main:create_app() -> FastAPI`
 - Produces: root commands `make dev`, `make test`, `make lint`, and `make build`
 
-- [ ] **Step 1: Initialize Git and scaffold both applications**
+- [x] **Step 1: Initialize Git and scaffold both applications**
 
 Run:
 
@@ -110,7 +110,7 @@ pnpm add -Dw concurrently
 
 Expected: a local `main` branch with the supplied `origin`, plus React TypeScript and Python applications. The remote-head check should return no refs for an empty repository; if it returns refs, fetch and reconcile them without force-pushing before continuing.
 
-- [ ] **Step 2: Add root workspace manifests**
+- [x] **Step 2: Add root workspace manifests**
 
 Use these root settings:
 
@@ -168,7 +168,7 @@ package = false
 members = ["apps/api"]
 ```
 
-- [ ] **Step 3: Write the failing backend health test**
+- [x] **Step 3: Write the failing backend health test**
 
 ```python
 from fastapi.testclient import TestClient
@@ -183,13 +183,13 @@ def test_health_returns_ok() -> None:
     assert response.json() == {"status": "ok"}
 ```
 
-- [ ] **Step 4: Run the backend test and verify failure**
+- [x] **Step 4: Run the backend test and verify failure**
 
 Run: `uv run --package yume-api pytest apps/api/tests/test_health.py -q`
 
 Expected: FAIL because `create_app` or `/api/health` does not exist.
 
-- [ ] **Step 5: Implement the minimal FastAPI application**
+- [x] **Step 5: Implement the minimal FastAPI application**
 
 ```python
 from fastapi import FastAPI
@@ -208,7 +208,7 @@ def create_app() -> FastAPI:
 app = create_app()
 ```
 
-- [ ] **Step 6: Replace the Vite demo with a failing application-shell test**
+- [x] **Step 6: Replace the Vite demo with a failing application-shell test**
 
 ```tsx
 import { render, screen } from "@testing-library/react";
@@ -228,7 +228,7 @@ Run: `pnpm --dir apps/web test --run`
 
 Expected: FAIL because the shell has not been implemented.
 
-- [ ] **Step 7: Implement the minimal React shell**
+- [x] **Step 7: Implement the minimal React shell**
 
 ```tsx
 export function App() {
@@ -241,7 +241,7 @@ export function App() {
 }
 ```
 
-- [ ] **Step 8: Add root orchestration commands**
+- [x] **Step 8: Add root orchestration commands**
 
 ```make
 .PHONY: dev test lint build
@@ -266,13 +266,13 @@ build:
 	uv build --package yume-api
 ```
 
-- [ ] **Step 9: Verify the foundation**
+- [x] **Step 9: Verify the foundation**
 
 Run: `make test && make lint && make build`
 
 Expected: all commands exit 0.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add .gitignore .editorconfig .nvmrc .python-version AGENTS.md docs package.json pnpm-workspace.yaml pnpm-lock.yaml pyproject.toml uv.lock apps Makefile
@@ -297,7 +297,7 @@ git push -u origin main
 - Produces: `python -m yume_api.contracts.export`
 - Produces: `@yume/contracts`
 
-- [ ] **Step 1: Write contract validation tests**
+- [x] **Step 1: Write contract validation tests**
 
 ```python
 from pydantic import TypeAdapter
@@ -329,13 +329,13 @@ def test_agent_spawned_event_is_discriminated() -> None:
     assert event.payload.room == "lobby"
 ```
 
-- [ ] **Step 2: Run the contract test and verify failure**
+- [x] **Step 2: Run the contract test and verify failure**
 
 Run: `uv run --package yume-api pytest apps/api/tests/contracts/test_events.py -q`
 
 Expected: FAIL because the event models do not exist.
 
-- [ ] **Step 3: Implement the complete v1 event types**
+- [x] **Step 3: Implement the complete v1 event types**
 
 ```python
 from datetime import datetime
@@ -508,7 +508,7 @@ WorldEvent = Annotated[
 ]
 ```
 
-- [ ] **Step 4: Export JSON Schema and generate TypeScript**
+- [x] **Step 4: Export JSON Schema and generate TypeScript**
 
 ```python
 import json
@@ -575,7 +575,7 @@ uv run --package yume-api python -m yume_api.contracts.export
 pnpm --dir packages/contracts generate
 ```
 
-- [ ] **Step 5: Verify Python and TypeScript contracts**
+- [x] **Step 5: Verify Python and TypeScript contracts**
 
 Run:
 
@@ -586,7 +586,7 @@ pnpm --dir packages/contracts typecheck
 
 Expected: both pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/api/src/yume_api/contracts apps/api/tests/contracts packages/contracts
