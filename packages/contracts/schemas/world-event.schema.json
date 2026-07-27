@@ -1,0 +1,1146 @@
+{
+  "$defs": {
+    "AgentRemovedEvent": {
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "evidence": {
+          "enum": [
+            "verified",
+            "inferred"
+          ],
+          "title": "Evidence",
+          "type": "string"
+        },
+        "type": {
+          "const": "agent.removed",
+          "title": "Type",
+          "type": "string"
+        },
+        "agent_id": {
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "payload": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Payload",
+          "type": "object"
+        }
+      },
+      "required": [
+        "event_id",
+        "sequence",
+        "occurred_at",
+        "source",
+        "evidence",
+        "type",
+        "agent_id"
+      ],
+      "title": "AgentRemovedEvent",
+      "type": "object"
+    },
+    "AgentSpawnedEvent": {
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "evidence": {
+          "enum": [
+            "verified",
+            "inferred"
+          ],
+          "title": "Evidence",
+          "type": "string"
+        },
+        "type": {
+          "const": "agent.spawned",
+          "title": "Type",
+          "type": "string"
+        },
+        "agent_id": {
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/AgentSpawnedPayload"
+        }
+      },
+      "required": [
+        "event_id",
+        "sequence",
+        "occurred_at",
+        "source",
+        "evidence",
+        "type",
+        "agent_id",
+        "payload"
+      ],
+      "title": "AgentSpawnedEvent",
+      "type": "object"
+    },
+    "AgentSpawnedPayload": {
+      "properties": {
+        "kind": {
+          "enum": [
+            "yume",
+            "scheduled",
+            "delegated"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "display_name": {
+          "title": "Display Name",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "idle",
+            "entering",
+            "thinking",
+            "moving",
+            "working",
+            "waiting_approval",
+            "completed",
+            "failed",
+            "exiting",
+            "stale"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "room": {
+          "enum": [
+            "ceo",
+            "memory",
+            "research",
+            "work",
+            "automation",
+            "lobby"
+          ],
+          "title": "Room",
+          "type": "string"
+        },
+        "task_summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Summary"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Started At"
+        },
+        "next_run_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Run At"
+        }
+      },
+      "required": [
+        "kind",
+        "display_name",
+        "status",
+        "room"
+      ],
+      "title": "AgentSpawnedPayload",
+      "type": "object"
+    },
+    "AgentStateChangedEvent": {
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "evidence": {
+          "enum": [
+            "verified",
+            "inferred"
+          ],
+          "title": "Evidence",
+          "type": "string"
+        },
+        "type": {
+          "const": "agent.state_changed",
+          "title": "Type",
+          "type": "string"
+        },
+        "agent_id": {
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/AgentStatePayload"
+        }
+      },
+      "required": [
+        "event_id",
+        "sequence",
+        "occurred_at",
+        "source",
+        "evidence",
+        "type",
+        "agent_id",
+        "payload"
+      ],
+      "title": "AgentStateChangedEvent",
+      "type": "object"
+    },
+    "AgentStatePayload": {
+      "properties": {
+        "status": {
+          "enum": [
+            "idle",
+            "entering",
+            "thinking",
+            "moving",
+            "working",
+            "waiting_approval",
+            "completed",
+            "failed",
+            "exiting",
+            "stale"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "room": {
+          "enum": [
+            "ceo",
+            "memory",
+            "research",
+            "work",
+            "automation",
+            "lobby"
+          ],
+          "title": "Room",
+          "type": "string"
+        },
+        "task_summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Summary"
+        },
+        "next_run_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Run At"
+        }
+      },
+      "required": [
+        "status",
+        "room"
+      ],
+      "title": "AgentStatePayload",
+      "type": "object"
+    },
+    "AgentView": {
+      "properties": {
+        "agent_id": {
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "yume",
+            "scheduled",
+            "delegated"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "display_name": {
+          "title": "Display Name",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "idle",
+            "entering",
+            "thinking",
+            "moving",
+            "working",
+            "waiting_approval",
+            "completed",
+            "failed",
+            "exiting",
+            "stale"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "room": {
+          "enum": [
+            "ceo",
+            "memory",
+            "research",
+            "work",
+            "automation",
+            "lobby"
+          ],
+          "title": "Room",
+          "type": "string"
+        },
+        "evidence": {
+          "enum": [
+            "verified",
+            "inferred"
+          ],
+          "title": "Evidence",
+          "type": "string"
+        },
+        "task_summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Summary"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Started At"
+        },
+        "next_run_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Run At"
+        }
+      },
+      "required": [
+        "agent_id",
+        "kind",
+        "display_name",
+        "status",
+        "room",
+        "evidence"
+      ],
+      "title": "AgentView",
+      "type": "object"
+    },
+    "ApprovalPayload": {
+      "properties": {
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "approval_id": {
+          "title": "Approval Id",
+          "type": "string"
+        },
+        "prompt": {
+          "title": "Prompt",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "approval_id",
+        "prompt"
+      ],
+      "title": "ApprovalPayload",
+      "type": "object"
+    },
+    "ApprovalRequestedEvent": {
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "evidence": {
+          "enum": [
+            "verified",
+            "inferred"
+          ],
+          "title": "Evidence",
+          "type": "string"
+        },
+        "type": {
+          "const": "approval.requested",
+          "title": "Type",
+          "type": "string"
+        },
+        "agent_id": {
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/ApprovalPayload"
+        }
+      },
+      "required": [
+        "event_id",
+        "sequence",
+        "occurred_at",
+        "source",
+        "evidence",
+        "type",
+        "agent_id",
+        "payload"
+      ],
+      "title": "ApprovalRequestedEvent",
+      "type": "object"
+    },
+    "ApprovalResolvedEvent": {
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "evidence": {
+          "enum": [
+            "verified",
+            "inferred"
+          ],
+          "title": "Evidence",
+          "type": "string"
+        },
+        "type": {
+          "const": "approval.resolved",
+          "title": "Type",
+          "type": "string"
+        },
+        "agent_id": {
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "payload": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Payload",
+          "type": "object"
+        }
+      },
+      "required": [
+        "event_id",
+        "sequence",
+        "occurred_at",
+        "source",
+        "evidence",
+        "type",
+        "agent_id",
+        "payload"
+      ],
+      "title": "ApprovalResolvedEvent",
+      "type": "object"
+    },
+    "ConnectionChangedEvent": {
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "evidence": {
+          "enum": [
+            "verified",
+            "inferred"
+          ],
+          "title": "Evidence",
+          "type": "string"
+        },
+        "type": {
+          "const": "connection.changed",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/ConnectionPayload"
+        }
+      },
+      "required": [
+        "event_id",
+        "sequence",
+        "occurred_at",
+        "source",
+        "evidence",
+        "type",
+        "payload"
+      ],
+      "title": "ConnectionChangedEvent",
+      "type": "object"
+    },
+    "ConnectionPayload": {
+      "properties": {
+        "status": {
+          "enum": [
+            "starting",
+            "connected",
+            "degraded",
+            "disconnected"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "ConnectionPayload",
+      "type": "object"
+    },
+    "ConversationCompletedEvent": {
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "evidence": {
+          "enum": [
+            "verified",
+            "inferred"
+          ],
+          "title": "Evidence",
+          "type": "string"
+        },
+        "type": {
+          "const": "conversation.completed",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/ConversationPayload"
+        }
+      },
+      "required": [
+        "event_id",
+        "sequence",
+        "occurred_at",
+        "source",
+        "evidence",
+        "type",
+        "payload"
+      ],
+      "title": "ConversationCompletedEvent",
+      "type": "object"
+    },
+    "ConversationDeltaEvent": {
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "evidence": {
+          "enum": [
+            "verified",
+            "inferred"
+          ],
+          "title": "Evidence",
+          "type": "string"
+        },
+        "type": {
+          "const": "conversation.delta",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/ConversationPayload"
+        }
+      },
+      "required": [
+        "event_id",
+        "sequence",
+        "occurred_at",
+        "source",
+        "evidence",
+        "type",
+        "payload"
+      ],
+      "title": "ConversationDeltaEvent",
+      "type": "object"
+    },
+    "ConversationMessage": {
+      "properties": {
+        "message_id": {
+          "title": "Message Id",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "user",
+            "assistant"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message_id",
+        "role",
+        "text"
+      ],
+      "title": "ConversationMessage",
+      "type": "object"
+    },
+    "ConversationPayload": {
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "message_id": {
+          "title": "Message Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "message_id"
+      ],
+      "title": "ConversationPayload",
+      "type": "object"
+    },
+    "ConversationUserAddedEvent": {
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "evidence": {
+          "enum": [
+            "verified",
+            "inferred"
+          ],
+          "title": "Evidence",
+          "type": "string"
+        },
+        "type": {
+          "const": "conversation.user_added",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/ConversationPayload"
+        }
+      },
+      "required": [
+        "event_id",
+        "sequence",
+        "occurred_at",
+        "source",
+        "evidence",
+        "type",
+        "payload"
+      ],
+      "title": "ConversationUserAddedEvent",
+      "type": "object"
+    },
+    "RunFinishedEvent": {
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "evidence": {
+          "enum": [
+            "verified",
+            "inferred"
+          ],
+          "title": "Evidence",
+          "type": "string"
+        },
+        "type": {
+          "const": "run.finished",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/RunFinishedPayload"
+        }
+      },
+      "required": [
+        "event_id",
+        "sequence",
+        "occurred_at",
+        "source",
+        "evidence",
+        "type",
+        "payload"
+      ],
+      "title": "RunFinishedEvent",
+      "type": "object"
+    },
+    "RunFinishedPayload": {
+      "properties": {
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "outcome": {
+          "enum": [
+            "completed",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        }
+      },
+      "required": [
+        "run_id",
+        "outcome"
+      ],
+      "title": "RunFinishedPayload",
+      "type": "object"
+    },
+    "SnapshotPayload": {
+      "properties": {
+        "snapshot": {
+          "$ref": "#/$defs/WorldSnapshot"
+        }
+      },
+      "required": [
+        "snapshot"
+      ],
+      "title": "SnapshotPayload",
+      "type": "object"
+    },
+    "SnapshotReplacedEvent": {
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "evidence": {
+          "enum": [
+            "verified",
+            "inferred"
+          ],
+          "title": "Evidence",
+          "type": "string"
+        },
+        "type": {
+          "const": "snapshot.replaced",
+          "title": "Type",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/SnapshotPayload"
+        }
+      },
+      "required": [
+        "event_id",
+        "sequence",
+        "occurred_at",
+        "source",
+        "evidence",
+        "type",
+        "payload"
+      ],
+      "title": "SnapshotReplacedEvent",
+      "type": "object"
+    },
+    "WorldSnapshot": {
+      "properties": {
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "connection": {
+          "enum": [
+            "starting",
+            "connected",
+            "degraded",
+            "disconnected"
+          ],
+          "title": "Connection",
+          "type": "string"
+        },
+        "telemetry_mode": {
+          "default": "standard",
+          "enum": [
+            "standard",
+            "enhanced"
+          ],
+          "title": "Telemetry Mode",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "agents": {
+          "items": {
+            "$ref": "#/$defs/AgentView"
+          },
+          "title": "Agents",
+          "type": "array"
+        },
+        "conversation": {
+          "items": {
+            "$ref": "#/$defs/ConversationMessage"
+          },
+          "title": "Conversation",
+          "type": "array"
+        }
+      },
+      "required": [
+        "sequence",
+        "connection",
+        "agents"
+      ],
+      "title": "WorldSnapshot",
+      "type": "object"
+    }
+  },
+  "discriminator": {
+    "mapping": {
+      "agent.removed": "#/$defs/AgentRemovedEvent",
+      "agent.spawned": "#/$defs/AgentSpawnedEvent",
+      "agent.state_changed": "#/$defs/AgentStateChangedEvent",
+      "approval.requested": "#/$defs/ApprovalRequestedEvent",
+      "approval.resolved": "#/$defs/ApprovalResolvedEvent",
+      "connection.changed": "#/$defs/ConnectionChangedEvent",
+      "conversation.completed": "#/$defs/ConversationCompletedEvent",
+      "conversation.delta": "#/$defs/ConversationDeltaEvent",
+      "conversation.user_added": "#/$defs/ConversationUserAddedEvent",
+      "run.finished": "#/$defs/RunFinishedEvent",
+      "snapshot.replaced": "#/$defs/SnapshotReplacedEvent"
+    },
+    "propertyName": "type"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/AgentSpawnedEvent"
+    },
+    {
+      "$ref": "#/$defs/AgentStateChangedEvent"
+    },
+    {
+      "$ref": "#/$defs/AgentRemovedEvent"
+    },
+    {
+      "$ref": "#/$defs/ConnectionChangedEvent"
+    },
+    {
+      "$ref": "#/$defs/SnapshotReplacedEvent"
+    },
+    {
+      "$ref": "#/$defs/ConversationUserAddedEvent"
+    },
+    {
+      "$ref": "#/$defs/ConversationDeltaEvent"
+    },
+    {
+      "$ref": "#/$defs/ConversationCompletedEvent"
+    },
+    {
+      "$ref": "#/$defs/ApprovalRequestedEvent"
+    },
+    {
+      "$ref": "#/$defs/ApprovalResolvedEvent"
+    },
+    {
+      "$ref": "#/$defs/RunFinishedEvent"
+    }
+  ]
+}
