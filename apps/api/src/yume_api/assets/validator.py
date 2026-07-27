@@ -42,11 +42,11 @@ class AssetPackError(ValueError):
 
 
 def load_and_validate_pack(root: Path) -> PackManifest:
-    root = root.resolve()
+    root = _resolved_root(root)
     manifest_path = root / "pack.json"
     try:
         manifest_text = manifest_path.read_text(encoding="utf-8")
-    except OSError as error:
+    except (OSError, UnicodeError) as error:
         raise AssetPackError(f"invalid manifest: {manifest_path} ({error})") from error
 
     try:
@@ -59,7 +59,7 @@ def load_and_validate_pack(root: Path) -> PackManifest:
 
 
 def validate_asset_pack(root: Path, manifest: PackManifest) -> None:
-    root = root.resolve()
+    root = _resolved_root(root)
     if (manifest.tile.width, manifest.tile.height) != TILE_SIZE:
         raise AssetPackError("tile dimensions must be 64x32")
     if (manifest.character.width, manifest.character.height) != CHARACTER_SIZE:
@@ -67,6 +67,9 @@ def validate_asset_pack(root: Path, manifest: PackManifest) -> None:
 
     map_path = _asset_file(root, root, manifest.map)
     atlas_path = _asset_file(root, root, manifest.atlas)
+    if manifest.ui is not None:
+        _asset_file(root, root, manifest.ui.image)
+        _asset_file(root, root, manifest.ui.atlas)
 
     missing_anchors = REQUIRED_ANCHORS - set(manifest.anchors)
     if missing_anchors:
@@ -87,11 +90,18 @@ def validate_asset_pack(root: Path, manifest: PackManifest) -> None:
 
 
 def _asset_file(root: Path, base: Path, relative: str) -> Path:
-    relative_path = Path(relative)
-    if relative_path.is_absolute():
-        raise AssetPackError(f"asset path escapes pack: {relative}")
+    if "\x00" in relative:
+        raise AssetPackError(f"invalid asset path: {relative!r}")
+    try:
+        relative_path = Path(relative)
+        if relative_path.is_absolute():
+            raise AssetPackError(f"asset path escapes pack: {relative}")
+        candidate = (base / relative_path).resolve()
+    except AssetPackError:
+        raise
+    except (OSError, RuntimeError, UnicodeError, ValueError) as error:
+        raise AssetPackError(f"invalid asset path: {relative!r} ({error})") from error
 
-    candidate = (base / relative_path).resolve()
     try:
         candidate.relative_to(root)
     except ValueError as error:
@@ -105,7 +115,7 @@ def _asset_file(root: Path, base: Path, relative: str) -> Path:
 def _read_json(root: Path, path: Path, kind: str) -> dict[str, Any]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
         raise AssetPackError(f"invalid {kind}: {_pack_path(root, path)} ({error})") from error
 
     if not isinstance(data, dict):
@@ -297,3 +307,10 @@ def _non_negative_int(value: Any, label: str) -> int:
 
 def _pack_path(root: Path, path: Path) -> str:
     return path.relative_to(root).as_posix()
+
+
+def _resolved_root(root: Path) -> Path:
+    try:
+        return root.resolve()
+    except (OSError, RuntimeError, UnicodeError, ValueError) as error:
+        raise AssetPackError(f"invalid asset pack root: {root!r} ({error})") from error

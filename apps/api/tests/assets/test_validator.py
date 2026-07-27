@@ -245,3 +245,83 @@ def test_invalid_manifest_is_reported_as_asset_pack_error(tmp_path: Path) -> Non
 
     with pytest.raises(AssetPackError, match="invalid manifest"):
         load_and_validate_pack(tmp_path)
+
+
+def test_invalid_utf8_manifest_is_reported_as_asset_pack_error(tmp_path: Path) -> None:
+    (tmp_path / "pack.json").write_bytes(b"\xff")
+
+    with pytest.raises(AssetPackError, match="invalid manifest"):
+        load_and_validate_pack(tmp_path)
+
+
+def test_invalid_utf8_map_is_reported_as_asset_pack_error(tmp_path: Path) -> None:
+    root = copy_placeholder_pack(tmp_path)
+    (root / "maps" / "office.json").write_bytes(b"\xff")
+
+    with pytest.raises(AssetPackError, match="invalid map"):
+        load_and_validate_pack(root)
+
+
+def test_invalid_utf8_atlas_is_reported_as_asset_pack_error(tmp_path: Path) -> None:
+    root = copy_placeholder_pack(tmp_path)
+    (root / "atlases" / "characters.json").write_bytes(b"\xff")
+
+    with pytest.raises(AssetPackError, match="invalid atlas"):
+        load_and_validate_pack(root)
+
+
+def test_nul_containing_asset_path_is_reported_as_asset_pack_error(
+    tmp_path: Path,
+) -> None:
+    root = copy_placeholder_pack(tmp_path)
+    manifest_path = root / "pack.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["map"] = "\u0000"
+    write_json(manifest_path, manifest)
+
+    with pytest.raises(AssetPackError, match="invalid asset path"):
+        load_and_validate_pack(root)
+
+
+def test_ui_image_outside_pack_is_rejected(tmp_path: Path) -> None:
+    root = copy_placeholder_pack(tmp_path)
+    manifest_path = root / "pack.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["ui"] = {
+        "image": "../outside.png",
+        "atlas": "atlases/characters.json",
+    }
+    write_json(manifest_path, manifest)
+
+    with pytest.raises(AssetPackError, match="path escapes pack"):
+        load_and_validate_pack(root)
+
+
+def test_missing_ui_atlas_is_rejected(tmp_path: Path) -> None:
+    root = copy_placeholder_pack(tmp_path)
+    manifest_path = root / "pack.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["ui"] = {
+        "image": "tiles/office.png",
+        "atlas": "atlases/missing-ui.json",
+    }
+    write_json(manifest_path, manifest)
+
+    with pytest.raises(AssetPackError, match="atlases/missing-ui.json"):
+        load_and_validate_pack(root)
+
+
+def test_nul_containing_ui_path_is_reported_as_asset_pack_error(
+    tmp_path: Path,
+) -> None:
+    root = copy_placeholder_pack(tmp_path)
+    manifest_path = root / "pack.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["ui"] = {
+        "image": "\u0000",
+        "atlas": "atlases/characters.json",
+    }
+    write_json(manifest_path, manifest)
+
+    with pytest.raises(AssetPackError, match="invalid asset path"):
+        load_and_validate_pack(root)
