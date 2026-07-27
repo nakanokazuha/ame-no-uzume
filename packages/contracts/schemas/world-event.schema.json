@@ -334,6 +334,85 @@
       "title": "AgentStatePayload",
       "type": "object"
     },
+    "AgentTaskChangedEvent": {
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "sequence": {
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "evidence": {
+          "enum": [
+            "verified",
+            "inferred"
+          ],
+          "title": "Evidence",
+          "type": "string"
+        },
+        "type": {
+          "const": "agent.task_changed",
+          "title": "Type",
+          "type": "string"
+        },
+        "agent_id": {
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/AgentTaskChangedPayload"
+        }
+      },
+      "required": [
+        "event_id",
+        "sequence",
+        "occurred_at",
+        "source",
+        "evidence",
+        "type",
+        "agent_id",
+        "payload"
+      ],
+      "title": "AgentTaskChangedEvent",
+      "type": "object"
+    },
+    "AgentTaskChangedPayload": {
+      "properties": {
+        "task_summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Task Summary"
+        }
+      },
+      "required": [
+        "task_summary"
+      ],
+      "title": "AgentTaskChangedPayload",
+      "type": "object"
+    },
     "AgentView": {
       "properties": {
         "agent_id": {
@@ -1097,6 +1176,7 @@
       "agent.removed": "#/$defs/AgentRemovedEvent",
       "agent.spawned": "#/$defs/AgentSpawnedEvent",
       "agent.state_changed": "#/$defs/AgentStateChangedEvent",
+      "agent.task_changed": "#/$defs/AgentTaskChangedEvent",
       "approval.requested": "#/$defs/ApprovalRequestedEvent",
       "approval.resolved": "#/$defs/ApprovalResolvedEvent",
       "connection.changed": "#/$defs/ConnectionChangedEvent",
@@ -1114,6 +1194,9 @@
     },
     {
       "$ref": "#/$defs/AgentStateChangedEvent"
+    },
+    {
+      "$ref": "#/$defs/AgentTaskChangedEvent"
     },
     {
       "$ref": "#/$defs/AgentRemovedEvent"

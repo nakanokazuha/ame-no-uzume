@@ -86,6 +86,16 @@ class AgentStateChangedEvent(EventBase):
     payload: AgentStatePayload
 
 
+class AgentTaskChangedPayload(BaseModel):
+    task_summary: str | None
+
+
+class AgentTaskChangedEvent(EventBase):
+    type: Literal["agent.task_changed"]
+    agent_id: str
+    payload: AgentTaskChangedPayload
+
+
 class AgentRemovedEvent(EventBase):
     type: Literal["agent.removed"]
     agent_id: str
@@ -163,6 +173,7 @@ class RunFinishedEvent(EventBase):
 WorldEvent = Annotated[
     AgentSpawnedEvent
     | AgentStateChangedEvent
+    | AgentTaskChangedEvent
     | AgentRemovedEvent
     | ConnectionChangedEvent
     | SnapshotReplacedEvent

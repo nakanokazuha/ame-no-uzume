@@ -8,6 +8,7 @@
 export type WorldEventSchema =
   | AgentSpawnedEvent
   | AgentStateChangedEvent
+  | AgentTaskChangedEvent
   | AgentRemovedEvent
   | ConnectionChangedEvent
   | SnapshotReplacedEvent
@@ -70,29 +71,38 @@ export type Sequence2 = number;
 export type OccurredAt2 = string;
 export type Source2 = string;
 export type Evidence2 = "verified" | "inferred";
-export type Type2 = "agent.removed";
+export type Type2 = "agent.task_changed";
 export type AgentId2 = string;
+export type TaskSummary2 = string | null;
 export type SchemaVersion3 = 1;
 export type EventId3 = string;
 export type Sequence3 = number;
 export type OccurredAt3 = string;
 export type Source3 = string;
 export type Evidence3 = "verified" | "inferred";
-export type Type3 = "connection.changed";
-export type Status2 = "starting" | "connected" | "degraded" | "disconnected";
-export type Reason = string | null;
+export type Type3 = "agent.removed";
+export type AgentId3 = string;
 export type SchemaVersion4 = 1;
 export type EventId4 = string;
 export type Sequence4 = number;
 export type OccurredAt4 = string;
 export type Source4 = string;
 export type Evidence4 = "verified" | "inferred";
-export type Type4 = "snapshot.replaced";
+export type Type4 = "connection.changed";
+export type Status2 = "starting" | "connected" | "degraded" | "disconnected";
+export type Reason = string | null;
+export type SchemaVersion5 = 1;
+export type EventId5 = string;
 export type Sequence5 = number;
+export type OccurredAt5 = string;
+export type Source5 = string;
+export type Evidence5 = "verified" | "inferred";
+export type Type5 = "snapshot.replaced";
+export type Sequence6 = number;
 export type Connection = "starting" | "connected" | "degraded" | "disconnected";
 export type TelemetryMode = "standard" | "enhanced";
 export type SessionId = string | null;
-export type AgentId3 = string;
+export type AgentId4 = string;
 export type Kind1 = "yume" | "scheduled" | "delegated";
 export type DisplayName1 = string;
 export type Status3 =
@@ -107,8 +117,8 @@ export type Status3 =
   | "exiting"
   | "stale";
 export type Room2 = "ceo" | "memory" | "research" | "work" | "automation" | "lobby";
-export type Evidence5 = "verified" | "inferred";
-export type TaskSummary2 = string | null;
+export type Evidence6 = "verified" | "inferred";
+export type TaskSummary3 = string | null;
 export type StartedAt1 = string | null;
 export type NextRunAt2 = string | null;
 export type Agents = AgentView[];
@@ -116,55 +126,55 @@ export type MessageId = string;
 export type Role = "user" | "assistant";
 export type Text = string;
 export type Conversation = ConversationMessage[];
-export type SchemaVersion5 = 1;
-export type EventId5 = string;
-export type Sequence6 = number;
-export type OccurredAt5 = string;
-export type Source5 = string;
-export type Evidence6 = "verified" | "inferred";
-export type Type5 = "conversation.user_added";
-export type Text1 = string;
-export type MessageId1 = string;
 export type SchemaVersion6 = 1;
 export type EventId6 = string;
 export type Sequence7 = number;
 export type OccurredAt6 = string;
 export type Source6 = string;
 export type Evidence7 = "verified" | "inferred";
-export type Type6 = "conversation.delta";
+export type Type6 = "conversation.user_added";
+export type Text1 = string;
+export type MessageId1 = string;
 export type SchemaVersion7 = 1;
 export type EventId7 = string;
 export type Sequence8 = number;
 export type OccurredAt7 = string;
 export type Source7 = string;
 export type Evidence8 = "verified" | "inferred";
-export type Type7 = "conversation.completed";
+export type Type7 = "conversation.delta";
 export type SchemaVersion8 = 1;
 export type EventId8 = string;
 export type Sequence9 = number;
 export type OccurredAt8 = string;
 export type Source8 = string;
 export type Evidence9 = "verified" | "inferred";
-export type Type8 = "approval.requested";
-export type AgentId4 = string;
-export type RunId = string;
-export type ApprovalId = string;
-export type Prompt = string;
+export type Type8 = "conversation.completed";
 export type SchemaVersion9 = 1;
 export type EventId9 = string;
 export type Sequence10 = number;
 export type OccurredAt9 = string;
 export type Source9 = string;
 export type Evidence10 = "verified" | "inferred";
-export type Type9 = "approval.resolved";
+export type Type9 = "approval.requested";
 export type AgentId5 = string;
+export type RunId = string;
+export type ApprovalId = string;
+export type Prompt = string;
 export type SchemaVersion10 = 1;
 export type EventId10 = string;
 export type Sequence11 = number;
 export type OccurredAt10 = string;
 export type Source10 = string;
 export type Evidence11 = "verified" | "inferred";
-export type Type10 = "run.finished";
+export type Type10 = "approval.resolved";
+export type AgentId6 = string;
+export type SchemaVersion11 = 1;
+export type EventId11 = string;
+export type Sequence12 = number;
+export type OccurredAt11 = string;
+export type Source11 = string;
+export type Evidence12 = "verified" | "inferred";
+export type Type11 = "run.finished";
 export type RunId1 = string;
 export type Outcome = "completed" | "failed" | "cancelled";
 export type Error = string | null;
@@ -210,7 +220,7 @@ export interface AgentStatePayload {
   next_run_at?: NextRunAt1;
   [k: string]: unknown;
 }
-export interface AgentRemovedEvent {
+export interface AgentTaskChangedEvent {
   schema_version?: SchemaVersion2;
   event_id: EventId2;
   sequence: Sequence2;
@@ -219,13 +229,14 @@ export interface AgentRemovedEvent {
   evidence: Evidence2;
   type: Type2;
   agent_id: AgentId2;
-  payload?: Payload;
+  payload: AgentTaskChangedPayload;
   [k: string]: unknown;
 }
-export interface Payload {
-  [k: string]: string;
+export interface AgentTaskChangedPayload {
+  task_summary: TaskSummary2;
+  [k: string]: unknown;
 }
-export interface ConnectionChangedEvent {
+export interface AgentRemovedEvent {
   schema_version?: SchemaVersion3;
   event_id: EventId3;
   sequence: Sequence3;
@@ -233,6 +244,21 @@ export interface ConnectionChangedEvent {
   source: Source3;
   evidence: Evidence3;
   type: Type3;
+  agent_id: AgentId3;
+  payload?: Payload;
+  [k: string]: unknown;
+}
+export interface Payload {
+  [k: string]: string;
+}
+export interface ConnectionChangedEvent {
+  schema_version?: SchemaVersion4;
+  event_id: EventId4;
+  sequence: Sequence4;
+  occurred_at: OccurredAt4;
+  source: Source4;
+  evidence: Evidence4;
+  type: Type4;
   payload: ConnectionPayload;
   [k: string]: unknown;
 }
@@ -242,13 +268,13 @@ export interface ConnectionPayload {
   [k: string]: unknown;
 }
 export interface SnapshotReplacedEvent {
-  schema_version?: SchemaVersion4;
-  event_id: EventId4;
-  sequence: Sequence4;
-  occurred_at: OccurredAt4;
-  source: Source4;
-  evidence: Evidence4;
-  type: Type4;
+  schema_version?: SchemaVersion5;
+  event_id: EventId5;
+  sequence: Sequence5;
+  occurred_at: OccurredAt5;
+  source: Source5;
+  evidence: Evidence5;
+  type: Type5;
   payload: SnapshotPayload;
   [k: string]: unknown;
 }
@@ -257,7 +283,7 @@ export interface SnapshotPayload {
   [k: string]: unknown;
 }
 export interface WorldSnapshot {
-  sequence: Sequence5;
+  sequence: Sequence6;
   connection: Connection;
   telemetry_mode?: TelemetryMode;
   session_id?: SessionId;
@@ -266,13 +292,13 @@ export interface WorldSnapshot {
   [k: string]: unknown;
 }
 export interface AgentView {
-  agent_id: AgentId3;
+  agent_id: AgentId4;
   kind: Kind1;
   display_name: DisplayName1;
   status: Status3;
   room: Room2;
-  evidence: Evidence5;
-  task_summary?: TaskSummary2;
+  evidence: Evidence6;
+  task_summary?: TaskSummary3;
   started_at?: StartedAt1;
   next_run_at?: NextRunAt2;
   [k: string]: unknown;
@@ -284,22 +310,6 @@ export interface ConversationMessage {
   [k: string]: unknown;
 }
 export interface ConversationUserAddedEvent {
-  schema_version?: SchemaVersion5;
-  event_id: EventId5;
-  sequence: Sequence6;
-  occurred_at: OccurredAt5;
-  source: Source5;
-  evidence: Evidence6;
-  type: Type5;
-  payload: ConversationPayload;
-  [k: string]: unknown;
-}
-export interface ConversationPayload {
-  text: Text1;
-  message_id: MessageId1;
-  [k: string]: unknown;
-}
-export interface ConversationDeltaEvent {
   schema_version?: SchemaVersion6;
   event_id: EventId6;
   sequence: Sequence7;
@@ -310,7 +320,12 @@ export interface ConversationDeltaEvent {
   payload: ConversationPayload;
   [k: string]: unknown;
 }
-export interface ConversationCompletedEvent {
+export interface ConversationPayload {
+  text: Text1;
+  message_id: MessageId1;
+  [k: string]: unknown;
+}
+export interface ConversationDeltaEvent {
   schema_version?: SchemaVersion7;
   event_id: EventId7;
   sequence: Sequence8;
@@ -321,7 +336,7 @@ export interface ConversationCompletedEvent {
   payload: ConversationPayload;
   [k: string]: unknown;
 }
-export interface ApprovalRequestedEvent {
+export interface ConversationCompletedEvent {
   schema_version?: SchemaVersion8;
   event_id: EventId8;
   sequence: Sequence9;
@@ -329,7 +344,18 @@ export interface ApprovalRequestedEvent {
   source: Source8;
   evidence: Evidence9;
   type: Type8;
-  agent_id: AgentId4;
+  payload: ConversationPayload;
+  [k: string]: unknown;
+}
+export interface ApprovalRequestedEvent {
+  schema_version?: SchemaVersion9;
+  event_id: EventId9;
+  sequence: Sequence10;
+  occurred_at: OccurredAt9;
+  source: Source9;
+  evidence: Evidence10;
+  type: Type9;
+  agent_id: AgentId5;
   payload: ApprovalPayload;
   [k: string]: unknown;
 }
@@ -340,21 +366,6 @@ export interface ApprovalPayload {
   [k: string]: unknown;
 }
 export interface ApprovalResolvedEvent {
-  schema_version?: SchemaVersion9;
-  event_id: EventId9;
-  sequence: Sequence10;
-  occurred_at: OccurredAt9;
-  source: Source9;
-  evidence: Evidence10;
-  type: Type9;
-  agent_id: AgentId5;
-  payload: Payload1;
-  [k: string]: unknown;
-}
-export interface Payload1 {
-  [k: string]: string;
-}
-export interface RunFinishedEvent {
   schema_version?: SchemaVersion10;
   event_id: EventId10;
   sequence: Sequence11;
@@ -362,6 +373,21 @@ export interface RunFinishedEvent {
   source: Source10;
   evidence: Evidence11;
   type: Type10;
+  agent_id: AgentId6;
+  payload: Payload1;
+  [k: string]: unknown;
+}
+export interface Payload1 {
+  [k: string]: string;
+}
+export interface RunFinishedEvent {
+  schema_version?: SchemaVersion11;
+  event_id: EventId11;
+  sequence: Sequence12;
+  occurred_at: OccurredAt11;
+  source: Source11;
+  evidence: Evidence12;
+  type: Type11;
   payload: RunFinishedPayload;
   [k: string]: unknown;
 }
