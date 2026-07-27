@@ -31,7 +31,7 @@ Develop behavior test-first. Use pytest for backend units and adapters, Vitest a
 
 ## Subagent Execution
 
-When implementation work is delegated, use only the approved `gpt-5.6-luna` model with `xhigh` reasoning. Do not substitute another model; if that model is unavailable, pause and request direction. Use a fresh implementer and reviewer for each task, and keep all work on the shared `main` branch. After a task passes review and verification, mark that task complete in its implementation-plan checklist before creating the task's commit and pushing `origin/main`.
+When implementation work is delegated, use only `gpt-5.6-terra` with `xhigh` reasoning. Never use `gpt-5.6-sol` or another substitute. Use a fresh implementer and reviewer for each task, and keep all work on the shared `main` branch. After a task passes review and verification, mark that task complete in its implementation-plan checklist before creating the task's commit and pushing `origin/main`.
 
 ## Commits, Delivery, and Security
 
