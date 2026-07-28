@@ -2,7 +2,7 @@
 
 ## Project Status & Source of Truth
 
-The repository contains the approved design, implementation plans, and the initial monorepo plus event-contract implementation. Read `docs/superpowers/specs/2026-07-27-yume-dashboard-design.md`, then `docs/superpowers/plans/2026-07-27-yume-dashboard-roadmap.md`. Execute the core plan before the optional bridge or production assets. Treat plan gates as requirements; update documentation when implementation diverges.
+The repository contains the approved design, implementation plans, and the implemented monorepo, event contracts, configuration, and placeholder asset pack. Read `docs/superpowers/specs/2026-07-27-yume-dashboard-design.md`, then `docs/superpowers/plans/2026-07-27-yume-dashboard-roadmap.md`. Execute the core plan before the optional bridge or production assets. Treat plan gates as requirements; update documentation when implementation diverges.
 
 ## Planned Project Structure
 
@@ -31,7 +31,11 @@ Develop behavior test-first. Use pytest for backend units and adapters, Vitest a
 
 ## Subagent Execution
 
-When implementation work is delegated, use only `gpt-5.6-terra` with `xhigh` reasoning. Never use `gpt-5.6-sol` or another substitute. Use a fresh implementer and reviewer for each task, and keep all work on the shared `main` branch. After a task passes review and verification, mark that task complete in its implementation-plan checklist before creating the task's commit and pushing `origin/main`.
+Before each task, load `python-conventions` for Python work and `typescript-convention` for TypeScript, TSX, or related JavaScript work; load both for mixed-language tasks. Apply their type-safety, dependency-management, testing, and structure rules without silently changing tools or architecture outside the task.
+
+Implementation subagents use only `gpt-5.6-terra` with `xhigh` reasoning. Each non-commit numbered step must be reviewed before it is checked or advanced: dispatch a fresh read-only `gpt-5.6-sol` reviewer with `xhigh` reasoning using `superpowers:requesting-code-review`. Review the current step against its requirements and working-tree diff. If Critical or Important findings are valid, dispatch a fresh `gpt-5.6-terra` correction subagent with `xhigh` reasoning using `superpowers:receiving-code-review`; it must verify the feedback, fix one item at a time, and test each fix. Then dispatch another fresh Sol reviewer.
+
+Allow at most two correction/re-review loops per review gate. If Critical or Important findings remain after two loops, stop and request user direction; record Minor findings for later. For the final Commit step, complete task verification, request a fresh Sol review of the accumulated task diff, resolve valid findings and re-review, update the plan checklists, and only then create the focused commit; no post-commit review is intended. Keep all work on shared `main`, then push `origin/main`.
 
 ## Commits, Delivery, and Security
 

@@ -1,6 +1,8 @@
 # Yume Core Dashboard Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> Before each task, apply `python-conventions`, `typescript-convention`, or both according to the files changed. Review each non-commit numbered step under Global Constraints before it is checked or advanced; the final Commit step follows its distinct pre-commit sequence, with no post-commit review.
 
 **Goal:** Build a complete macOS-first Yume visualizer that connects one persistent Hermes session to a one-page React/Phaser office using production-shaped placeholder assets.
 
@@ -20,7 +22,12 @@
 - Placeholder and production packs use 64×32 isometric tiles and 32×48 character canvases.
 - Asset packs are read-only data and artwork; they contain no executable browser code.
 - The optional Hermes observability hook is not required by this plan.
-- A task is complete only after its verification passes, its focused commit is created, and `git push origin main` succeeds.
+- Python tasks must load `python-conventions`; TypeScript, TSX, and related JavaScript tasks must load `typescript-convention`; mixed tasks must load both.
+- Implementation subagents use `gpt-5.6-terra` with `xhigh` reasoning.
+- Each non-commit numbered step must be reviewed before it is checked or advanced: dispatch a fresh read-only `gpt-5.6-sol` `xhigh` reviewer using `superpowers:requesting-code-review`.
+- Valid Critical or Important findings go to a fresh `gpt-5.6-terra` `xhigh` correction subagent using `superpowers:receiving-code-review`, followed by a fresh Sol re-review.
+- Allow at most two correction/re-review loops per review gate. If Critical or Important findings remain after two loops, stop and request user direction; record Minor findings for later.
+- For the final Commit step, complete task verification, request a fresh Sol review of the accumulated task diff, resolve valid findings and re-review, update the plan checklists, and only then create the focused commit; no post-commit review is intended. A task is complete only after all steps are checked, its focused commit is created, and `git push origin main` succeeds.
 - Work directly on `main`; do not add CI/CD or GitHub Actions before the full v1 acceptance gate passes.
 
 ---
@@ -2981,7 +2988,7 @@ Include explicit warnings that Hermes grants terminal and file-tool access, the 
 
 - [ ] **Step 4: Update repository guidance**
 
-Replace planning-phase wording in `AGENTS.md` with the implemented monorepo structure and verified commands. Retain the task-level commit-and-push policy, direct `main` workflow, and pre-v1 CI/CD prohibition. Document Python `snake_case`, TypeScript `camelCase`/React `PascalCase`, Ruff, mypy, ESLint, Vitest, pytest, Playwright, and Conventional Commits.
+Replace planning-phase wording in `AGENTS.md` with the implemented monorepo structure and verified commands. Retain the language-convention skill gates; the per-non-commit-step Sol review and Terra correction protocol; the two-loop maximum and its Critical, Important, and Minor-finding outcomes; the final Commit-step sequence of verification, accumulated-diff review, correction/re-review, and plan-checklist updates before commit with no post-commit review; the task-level commit-and-push policy; direct `main` workflow; and pre-v1 CI/CD prohibition. Document Python `snake_case`, TypeScript `camelCase`/React `PascalCase`, Ruff, mypy, ESLint, Vitest, pytest, Playwright, and Conventional Commits.
 
 - [ ] **Step 5: Run fresh final verification**
 

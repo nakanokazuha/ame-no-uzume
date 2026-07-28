@@ -1,6 +1,8 @@
 # Yume Observability Bridge Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> Before each task, apply `python-conventions`, `typescript-convention`, or both according to the files changed. Review each non-commit numbered step under Global Constraints before it is checked or advanced; the final Commit step follows its distinct pre-commit sequence, with no post-commit review.
 
 **Goal:** Add an optional, authenticated Hermes shell-hook bridge that enriches delegated-worker identity and lifecycle events without becoming a dependency of the core dashboard.
 
@@ -16,7 +18,12 @@
 - The bridge endpoint is loopback-only and requires a separate `YUME_HOOK_TOKEN`.
 - Raw tool results and credentials must never be transmitted.
 - Hook events have higher evidence priority than session-stream events.
-- A task is complete only after its verification passes, its focused commit is created, and `git push origin main` succeeds.
+- Python tasks must load `python-conventions`; TypeScript, TSX, and related JavaScript tasks must load `typescript-convention`; mixed tasks must load both.
+- Implementation subagents use `gpt-5.6-terra` with `xhigh` reasoning.
+- Each non-commit numbered step must be reviewed before it is checked or advanced: dispatch a fresh read-only `gpt-5.6-sol` `xhigh` reviewer using `superpowers:requesting-code-review`.
+- Valid Critical or Important findings go to a fresh `gpt-5.6-terra` `xhigh` correction subagent using `superpowers:receiving-code-review`, followed by a fresh Sol re-review.
+- Allow at most two correction/re-review loops per review gate. If Critical or Important findings remain after two loops, stop and request user direction; record Minor findings for later.
+- For the final Commit step, complete task verification, request a fresh Sol review of the accumulated task diff, resolve valid findings and re-review, update the plan checklists, and only then create the focused commit; no post-commit review is intended. A task is complete only after all steps are checked, its focused commit is created, and `git push origin main` succeeds.
 - Work directly on `main`; do not add CI/CD or GitHub Actions before the full v1 acceptance gate passes.
 
 ---
