@@ -7,6 +7,9 @@ import pytest
 
 from yume_api.services.session import SessionService, SessionStateError
 
+WRITE_FAILURE_MESSAGE = "write failed"
+CLEANUP_FAILURE_MESSAGE = "cleanup failed"
+
 
 @pytest.fixture
 def fake_client() -> AsyncMock:
@@ -95,3 +98,23 @@ async def test_ensure_session_rejects_malformed_persisted_state(
         await service.ensure_session()
 
     fake_client.create_session.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_failed_temporary_file_cleanup_does_not_mask_persistence_error(
+    tmp_path: Path, fake_client: AsyncMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    service = SessionService(fake_client, tmp_path / "state.json")
+    fake_client.create_session.return_value = "session-1"
+
+    def fail_write_text(*_: object, **__: object) -> int:
+        raise OSError(WRITE_FAILURE_MESSAGE)
+
+    def fail_unlink(*_: object, **__: object) -> None:
+        raise OSError(CLEANUP_FAILURE_MESSAGE)
+
+    monkeypatch.setattr(Path, "write_text", fail_write_text)
+    monkeypatch.setattr(Path, "unlink", fail_unlink)
+
+    with pytest.raises(SessionStateError, match="could not persist session state"):
+        await service.ensure_session()

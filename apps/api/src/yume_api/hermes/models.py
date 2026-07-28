@@ -1,6 +1,8 @@
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, StrictBool, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
+
+type HermesIdentifier = Annotated[StrictStr, Field(min_length=1)]
 
 
 class HermesCapabilities(BaseModel):
@@ -36,7 +38,7 @@ class HermesRun(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    run_id: StrictStr
+    run_id: HermesIdentifier
     status: Literal[
         "started",
         "running",
@@ -55,7 +57,7 @@ class HermesSessionCreated(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    id: StrictStr
+    id: HermesIdentifier
 
 
 class HermesRunCreated(BaseModel):
@@ -63,7 +65,7 @@ class HermesRunCreated(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    run_id: StrictStr
+    run_id: HermesIdentifier
 
 
 class HermesContentPart(BaseModel):
@@ -80,6 +82,6 @@ class HermesSessionMessage(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    id: StrictStr
+    id: HermesIdentifier
     role: Literal["user", "assistant"]
     content: str | list[HermesContentPart]

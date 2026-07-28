@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from pathlib import Path
 from typing import Protocol
 from uuid import uuid4
@@ -10,6 +11,8 @@ SESSION_TITLE = "Yume Dashboard"
 INVALID_STATE_MESSAGE = "invalid session state"
 PERSISTENCE_FAILURE_MESSAGE = "could not persist session state"
 INVALID_SESSION_ID_MESSAGE = "Hermes returned an invalid session ID"
+TEMPORARY_STATE_CLEANUP_MESSAGE = "could not remove failed session state temporary file"
+logger = logging.getLogger(__name__)
 
 
 class SessionClient(Protocol):
@@ -81,7 +84,10 @@ def _persist_session_id(state_path: Path, session_id: str) -> None:
         )
         temporary_path.replace(state_path)
     except OSError as error:
-        temporary_path.unlink(missing_ok=True)
+        try:
+            temporary_path.unlink(missing_ok=True)
+        except OSError:
+            logger.warning(TEMPORARY_STATE_CLEANUP_MESSAGE)
         raise SessionStateError(PERSISTENCE_FAILURE_MESSAGE) from error
 
 

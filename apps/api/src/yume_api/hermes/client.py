@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from collections.abc import AsyncIterator
 from typing import Any, Self
 
@@ -22,8 +23,10 @@ POLL_INTERVAL_SECONDS = 1
 EMPTY_API_KEY_MESSAGE = "Hermes API key must not be empty"
 INCOMPATIBLE_CAPABILITIES_MESSAGE = "Hermes exposes neither session streaming nor compatible runs"
 TERMINAL_RUN_EVENTS = frozenset({"run.completed", "run.failed", "run.cancelled"})
+RUNS_SSE_FALLBACK_MESSAGE = "Runs SSE is unavailable; polling for terminal status"
 _SESSION_MESSAGE_OBJECTS = TypeAdapter(list[dict[str, Any]])
 _MESSAGE_CONTENT = TypeAdapter(str | list[HermesContentPart])
+logger = logging.getLogger(__name__)
 
 
 class HermesClient:
@@ -114,7 +117,7 @@ class HermesClient:
                     if event.event in TERMINAL_RUN_EVENTS:
                         return
             except httpx.HTTPError:
-                pass
+                logger.warning(RUNS_SSE_FALLBACK_MESSAGE)
         async for event in self._poll_run_until_terminal(run_id):
             yield event
 

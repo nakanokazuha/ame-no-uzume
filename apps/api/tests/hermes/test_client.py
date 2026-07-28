@@ -1,4 +1,5 @@
 import json
+import logging
 from collections.abc import AsyncIterator
 
 import httpx
@@ -8,7 +9,8 @@ from httpx import Response
 from pydantic import ValidationError
 
 from yume_api.contracts.events import ConversationMessage
-from yume_api.hermes.client import HermesClient, extract_text
+from yume_api.hermes import client as hermes_client
+from yume_api.hermes.client import POLL_INTERVAL_SECONDS, HermesClient, extract_text
 from yume_api.hermes.models import HermesCapabilities
 from yume_api.hermes.sse import iter_sse
 
@@ -59,6 +61,29 @@ async def test_create_session_posts_the_dashboard_title() -> None:
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_wire_responses_reject_empty_hermes_identifiers() -> None:
+    respx.post("http://hermes/api/sessions").mock(return_value=Response(201, json={"id": ""}))
+    respx.post("http://hermes/v1/runs").mock(return_value=Response(201, json={"run_id": ""}))
+    respx.get("http://hermes/v1/runs/run-1").mock(
+        return_value=Response(200, json={"run_id": "", "status": "completed"})
+    )
+    respx.get("http://hermes/api/sessions/session-1/messages").mock(
+        return_value=Response(200, json=[{"id": "", "role": "assistant", "content": "Done"}])
+    )
+
+    async with HermesClient("http://hermes", "secret") as client:
+        with pytest.raises(ValidationError):
+            await client.create_session("Yume Dashboard")
+        with pytest.raises(ValidationError):
+            await client.create_run("session-1", "Work", [])
+        with pytest.raises(ValidationError):
+            await client.get_run("run-1")
+        with pytest.raises(ValidationError):
+            await client.get_session_messages("session-1")
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_stream_session_chat_parses_sse_frames() -> None:
     respx.post("http://hermes/api/sessions/session-1/chat/stream").mock(
         return_value=Response(
@@ -80,6 +105,30 @@ async def test_stream_session_chat_parses_sse_frames() -> None:
     assert [(event.event, event.data) for event in events] == [
         ("assistant.delta", {"text": "Hel"}),
         ("assistant.completed", {"message_id": "m2"}),
+    ]
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_task_routes_to_native_session_chat_when_available() -> None:
+    route = respx.post("http://hermes/api/sessions/session-1/chat/stream").mock(
+        return_value=Response(
+            200,
+            content=b'event: assistant.completed\ndata: {"message_id":"m2"}\n\n',
+        )
+    )
+
+    async with HermesClient("http://hermes", "secret") as client:
+        events = [
+            event
+            async for event in client.stream_task(
+                HermesCapabilities(session_chat_stream=True), "session-1", "Work", []
+            )
+        ]
+
+    assert route.called
+    assert [(event.event, event.data) for event in events] == [
+        ("assistant.completed", {"message_id": "m2"})
     ]
 
 
@@ -203,6 +252,65 @@ async def test_task_polls_after_a_runs_sse_stream_ends_without_a_terminal_event(
 
     assert [event.event for event in events] == ["run.progress", "run.completed"]
     assert events[-1].data == {"run_id": "run-1", "output": "Done", "error": None}
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_task_polls_after_runs_sse_http_error_with_a_generic_warning(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    respx.post("http://hermes/v1/runs").mock(return_value=Response(201, json={"run_id": "run-1"}))
+    respx.get("http://hermes/v1/runs/run-1/events").mock(return_value=Response(503))
+    respx.get("http://hermes/v1/runs/run-1").mock(
+        return_value=Response(200, json={"run_id": "run-1", "status": "completed"})
+    )
+    capabilities = HermesCapabilities(
+        run_submission=True,
+        run_status=True,
+        run_events_sse=True,
+    )
+
+    caplog.set_level(logging.WARNING, logger="yume_api.hermes.client")
+    async with HermesClient("http://hermes", "secret-token") as client:
+        events = [
+            event async for event in client.stream_task(capabilities, "session-1", "Work", [])
+        ]
+
+    assert [event.event for event in events] == ["run.completed"]
+    assert "Runs SSE is unavailable; polling for terminal status" in caplog.text
+    assert "run-1" not in caplog.text
+    assert "secret-token" not in caplog.text
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_task_polls_nonterminal_runs_after_waiting_for_the_poll_interval(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    respx.post("http://hermes/v1/runs").mock(return_value=Response(201, json={"run_id": "run-1"}))
+    respx.get("http://hermes/v1/runs/run-1").mock(
+        side_effect=[
+            Response(200, json={"run_id": "run-1", "status": "running"}),
+            Response(200, json={"run_id": "run-1", "status": "completed", "output": "Done"}),
+        ]
+    )
+    waits: list[int] = []
+
+    async def record_wait(seconds: int) -> None:
+        waits.append(seconds)
+
+    monkeypatch.setattr(hermes_client.asyncio, "sleep", record_wait)
+    capabilities = HermesCapabilities(run_submission=True, run_status=True)
+
+    async with HermesClient("http://hermes", "secret") as client:
+        events = [
+            event async for event in client.stream_task(capabilities, "session-1", "Work", [])
+        ]
+
+    assert waits == [POLL_INTERVAL_SECONDS]
+    assert [(event.event, event.data) for event in events] == [
+        ("run.completed", {"run_id": "run-1", "output": "Done", "error": None})
+    ]
 
 
 @pytest.mark.asyncio
