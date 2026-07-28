@@ -1,7 +1,5 @@
 """Typed constructors for dashboard world events."""
 
-# ruff: noqa: PLR0913, PLR0917
-
 from datetime import UTC, datetime
 from typing import Any, Literal
 from uuid import uuid4
@@ -33,13 +31,16 @@ from yume_api.contracts.events import (
 )
 
 MAX_USER_VISIBLE_SUMMARY_LENGTH = 240
+COMPLETED_CONVERSATION_IDENTIFIER_REQUIRED = (
+    "completed conversation requires a Hermes message or run identifier"
+)
 
 
 def _bounded_summary(value: str | None) -> str | None:
     return value[:MAX_USER_VISIBLE_SUMMARY_LENGTH] if value else None
 
 
-def make_agent_state(
+def make_agent_state(  # noqa: PLR0913
     agent_id: str,
     status: AgentStatus,
     room: RoomId,
@@ -109,12 +110,13 @@ def make_connection_changed(
     )
 
 
-def make_agent_spawned(
+def make_agent_spawned(  # noqa: PLR0913
     agent_id: str,
     kind: AgentKind,
     display_name: str,
     room: RoomId,
     sequence: int,
+    *,
     task_summary: str | None = None,
     status: AgentStatus = "entering",
     next_run_at: datetime | None = None,
@@ -156,8 +158,10 @@ def make_conversation_delta(text: str, message_id: str, sequence: int) -> Conver
 
 def make_conversation_completed(data: dict[str, Any], sequence: int) -> ConversationCompletedEvent:
     """Create a verified completed assistant message from declared Hermes fields."""
-    run_id = str(data["run_id"])
-    message_id = str(data.get("message_id", run_id))
+    message_id = data.get("message_id") or data.get("run_id")
+    if not message_id:
+        raise ValueError(COMPLETED_CONVERSATION_IDENTIFIER_REQUIRED)
+    output = data.get("output", "")
     return ConversationCompletedEvent(
         event_id=str(uuid4()),
         sequence=sequence,
@@ -165,7 +169,9 @@ def make_conversation_completed(data: dict[str, Any], sequence: int) -> Conversa
         source="hermes.session_stream",
         evidence="verified",
         type="conversation.completed",
-        payload=ConversationPayload(text=str(data.get("output", "")), message_id=message_id),
+        payload=ConversationPayload(
+            text="" if output is None else str(output), message_id=str(message_id)
+        ),
     )
 
 

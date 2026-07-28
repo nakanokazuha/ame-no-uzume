@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from pydantic import TypeAdapter
@@ -89,6 +89,29 @@ def test_normalize_completed_delegation_emits_completion_then_removal() -> None:
     assert completed.payload.status == "completed"
 
 
+def test_native_session_text_is_completed_with_the_server_message_id() -> None:
+    normalizer = _normalizer()
+
+    first_delta = normalizer.normalize(_event("assistant.delta", {"text": "Hel"}), 1)
+    second_delta = normalizer.normalize(_event("assistant.delta", {"text": "lo"}), 2)
+    completed = normalizer.normalize(
+        _event("assistant.completed", {"message_id": "msg-1", "output": None}), 3
+    )
+
+    assert first_delta == second_delta == []
+    assert [(event.type, event.sequence) for event in completed] == [
+        ("conversation.completed", 3),
+        ("agent.state_changed", 4),
+    ]
+    message, yume_state = completed
+    assert message.type == "conversation.completed"
+    assert message.payload.message_id == "msg-1"
+    assert message.payload.text == "Hello"
+    assert yume_state.type == "agent.state_changed"
+    assert yume_state.agent_id == "yume"
+    assert yume_state.payload.status == "idle"
+
+
 def test_normalize_approval_marks_relevant_agent_then_requests_approval() -> None:
     events = _normalizer().normalize(
         _event(
@@ -140,6 +163,35 @@ def test_normalize_terminal_runs_preserves_cancelled_outcome_and_yume() -> None:
 
 
 @pytest.mark.parametrize(
+    ("event_name", "outcome"),
+    [("run.failed", "failed"), ("run.cancelled", "cancelled")],
+)
+def test_terminal_delegated_runs_emit_a_terminal_state_before_removal(
+    event_name: str, outcome: str
+) -> None:
+    events = _normalizer().normalize(
+        _event(event_name, {"run_id": "run-1", "tool_call_id": "call-2"}), 10
+    )
+
+    assert [(event.type, event.sequence) for event in events] == [
+        ("run.finished", 10),
+        ("agent.state_changed", 11),
+        ("agent.removed", 12),
+        ("agent.state_changed", 13),
+    ]
+    finished, worker_state, removed, yume_state = events
+    assert finished.type == "run.finished"
+    assert finished.payload.outcome == outcome
+    assert worker_state.type == "agent.state_changed"
+    assert worker_state.agent_id == "delegated:run-1:call-2"
+    assert worker_state.payload.status == "failed"
+    assert removed.type == "agent.removed"
+    assert removed.agent_id == worker_state.agent_id
+    assert yume_state.type == "agent.state_changed"
+    assert yume_state.agent_id == "yume"
+
+
+@pytest.mark.parametrize(
     "event",
     [
         make_agent_state("yume", "idle", "ceo", 1),
@@ -170,3 +222,16 @@ def test_factories_truncate_only_user_visible_summaries() -> None:
     assert len(agent.payload.task_summary or "") == 240
     assert len(approval.payload.prompt) == 240
     assert len(finished.payload.error or "") == 240
+
+
+def test_completed_conversation_uses_empty_text_when_hermes_has_no_output() -> None:
+    completed = make_conversation_completed({"run_id": "run-1", "output": None}, 1)
+
+    assert completed.payload.message_id == "run-1"
+    assert completed.payload.text == ""
+
+
+def test_agent_spawned_optional_fields_are_keyword_only() -> None:
+    spawned_factory = cast("Any", make_agent_spawned)
+    with pytest.raises(TypeError):
+        spawned_factory("delegated:1", "delegated", "Worker", "lobby", 1, "Task")

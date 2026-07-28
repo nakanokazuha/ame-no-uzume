@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from yume_api.contracts.factories import (
     make_agent_removed,
@@ -58,8 +58,10 @@ class HermesNormalizer:
 
     def __init__(self, room_policy: RoomPolicy) -> None:
         self._rooms = room_policy
+        self._native_assistant_text = ""
         self._handlers: dict[str, Callable[[dict[str, Any], int], list[WorldEvent]]] = {
             "assistant.delta": self._assistant_delta,
+            "assistant.completed": self._assistant_completed,
             "tool.started": self._tool_started,
             "tool.completed": self._tool_completed,
             "approval.requested": self._approval_requested,
@@ -75,12 +77,32 @@ class HermesNormalizer:
 
     def _assistant_delta(self, data: dict[str, Any], sequence: int) -> list[WorldEvent]:
         message_id = data.get("message_id")
+        text = data.get("delta", data.get("text", ""))
         if not message_id:
+            self._native_assistant_text += "" if text is None else str(text)
             return []
         return [
             make_conversation_delta(
-                text=str(data.get("delta", "")), message_id=str(message_id), sequence=sequence
+                text="" if text is None else str(text),
+                message_id=str(message_id),
+                sequence=sequence,
             )
+        ]
+
+    def _assistant_completed(self, data: dict[str, Any], sequence: int) -> list[WorldEvent]:
+        message_id = data.get("message_id")
+        completion_text = data.get("output")
+        if completion_text is None:
+            completion_text = data.get("text", self._native_assistant_text)
+        self._native_assistant_text = ""
+        yume_idle = make_agent_state("yume", "idle", "ceo", sequence + 1)
+        if not message_id:
+            return [yume_idle]
+        return [
+            make_conversation_completed(
+                {"message_id": message_id, "output": completion_text}, sequence
+            ),
+            yume_idle,
         ]
 
     def _tool_started(self, data: dict[str, Any], sequence: int) -> list[WorldEvent]:
@@ -120,19 +142,24 @@ class HermesNormalizer:
         ]
 
     def _run_failed(self, data: dict[str, Any], sequence: int) -> list[WorldEvent]:
-        if not data.get("run_id"):
-            return []
-        events: list[WorldEvent] = [make_run_finished(data, "failed", sequence)]
-        agent_id = agent_id_from(data)
-        if agent_id and agent_id != "yume":
-            events.append(make_agent_state(agent_id, "failed", "work", sequence + 1))
-        events.append(make_agent_state("yume", "idle", "ceo", sequence + len(events)))
-        return events
+        return self._terminal_run(data, "failed", sequence)
 
     def _run_cancelled(self, data: dict[str, Any], sequence: int) -> list[WorldEvent]:
+        return self._terminal_run(data, "cancelled", sequence)
+
+    def _terminal_run(
+        self,
+        data: dict[str, Any],
+        outcome: Literal["failed", "cancelled"],
+        sequence: int,
+    ) -> list[WorldEvent]:
         if not data.get("run_id"):
             return []
-        return [
-            make_run_finished(data, "cancelled", sequence),
-            make_agent_state("yume", "idle", "ceo", sequence + 1),
-        ]
+        events: list[WorldEvent] = [make_run_finished(data, outcome, sequence)]
+        agent_id = agent_id_from(data)
+        if agent_id and agent_id != "yume":
+            events.append(make_agent_state(agent_id, "failed", "work", sequence + len(events)))
+            if agent_id.startswith("delegated:"):
+                events.append(make_agent_removed(agent_id, sequence + len(events)))
+        events.append(make_agent_state("yume", "idle", "ceo", sequence + len(events)))
+        return events

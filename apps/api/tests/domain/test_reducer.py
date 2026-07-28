@@ -72,8 +72,22 @@ def test_reducer_returns_deep_copies_that_cannot_mutate_authoritative_state() ->
     assert next_snapshot.connection == "degraded"
 
 
+def test_reducer_ignores_duplicate_and_stale_non_snapshot_events() -> None:
+    reducer = WorldReducer()
+    reducer.apply(make_agent_state("yume", "working", "work", 2))
+
+    duplicate = reducer.apply(make_connection_changed("connected", None, 2))
+    stale = reducer.apply(make_agent_state("yume", "idle", "ceo", 1))
+
+    assert duplicate.sequence == stale.sequence == 2
+    assert duplicate.connection == stale.connection == "starting"
+    assert duplicate.agents[0].status == stale.agents[0].status == "working"
+    assert duplicate.agents[0].room == stale.agents[0].room == "work"
+
+
 def test_reducer_replaces_snapshot_with_independent_copy() -> None:
     reducer = WorldReducer()
+    reducer.apply(make_connection_changed("degraded", None, 100))
     replacement = WorldSnapshot(
         sequence=50,
         connection="connected",

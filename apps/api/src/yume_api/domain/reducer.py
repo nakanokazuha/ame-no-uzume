@@ -32,6 +32,8 @@ class WorldReducer:
         if event.type == "snapshot.replaced":
             self._snapshot = event.payload.snapshot.model_copy(deep=True)
             return self.snapshot
+        if event.sequence <= self._snapshot.sequence:
+            return self.snapshot
 
         agents = {agent.agent_id: agent for agent in self._snapshot.agents}
         conversation = list(self._snapshot.conversation)

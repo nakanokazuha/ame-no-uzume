@@ -1253,7 +1253,7 @@ git commit -m "feat: connect persistent dashboard session to Hermes"
 - Produces: `HermesNormalizer.normalize(event, context) -> list[WorldEvent]`
 - Produces: `WorldReducer.apply(event: WorldEvent) -> WorldSnapshot`
 
-- [ ] **Step 1: Write failing verified-first behavior tests**
+- [x] **Step 1: Write failing verified-first behavior tests**
 
 ```python
 def test_unknown_tool_maps_to_work() -> None:
@@ -1279,13 +1279,13 @@ def test_delegate_tool_spawns_generic_verified_worker() -> None:
     assert spawned.payload.task_summary is None
 ```
 
-- [ ] **Step 2: Run domain tests and verify failure**
+- [x] **Step 2: Run domain tests and verify failure**
 
 Run: `uv run --package yume-api pytest apps/api/tests/domain -q`
 
 Expected: FAIL because policy, normalizer, and reducer do not exist.
 
-- [ ] **Step 3: Implement ordered room rules**
+- [x] **Step 3: Implement ordered room rules**
 
 ```python
 from fnmatch import fnmatch
@@ -1313,7 +1313,7 @@ class RoomPolicy:
         return "work"
 ```
 
-- [ ] **Step 4: Implement deterministic event normalization**
+- [x] **Step 4: Implement deterministic event normalization**
 
 ```python
 from yume_api.contracts.events import WorldEvent
@@ -1556,7 +1556,7 @@ def test_event_factory_output_validates(event: WorldEvent) -> None:
     assert TypeAdapter(WorldEvent).validate_python(event.model_dump()) == event
 ```
 
-- [ ] **Step 5: Implement the authoritative reducer**
+- [x] **Step 5: Implement the authoritative reducer**
 
 ```python
 from yume_api.contracts.events import AgentView, WorldSnapshot
@@ -1615,13 +1615,13 @@ class WorldReducer:
         return self.snapshot.model_copy(deep=True)
 ```
 
-- [ ] **Step 6: Run all domain tests**
+- [x] **Step 6: Run all domain tests**
 
 Run: `uv run --package yume-api pytest apps/api/tests/domain -q`
 
 Expected: PASS, including delegation, approval, completion, failure, and unknown-tool cases.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/api/src/yume_api/domain apps/api/tests/domain
