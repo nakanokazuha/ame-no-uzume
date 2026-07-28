@@ -1726,7 +1726,7 @@ class WorldService:
                         await self.publish(event)
             finally:
                 self._normalizer.reset()
-    return session_id
+        return session_id
 ```
 
 `WorldService` retains one normalizer, so it must call `reset()` before each
