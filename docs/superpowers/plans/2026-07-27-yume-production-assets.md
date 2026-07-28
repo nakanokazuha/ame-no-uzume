@@ -23,9 +23,9 @@
 - Keep `.aseprite`, `.tmj`, palette, and reference files in Git; exports must be reproducible.
 - The user owns the aesthetic approval gates. Automation may reject invalid exports but may not silently approve artwork.
 - Python tasks must load `python-conventions`; TypeScript, TSX, and related JavaScript tasks must load `typescript-convention`; mixed tasks must load both.
-- Implementation subagents use `gpt-5.6-terra` with `xhigh` reasoning.
-- Each non-commit numbered step must be reviewed before it is checked or advanced: dispatch a fresh read-only `gpt-5.6-sol` `xhigh` reviewer using `superpowers:requesting-code-review`.
-- Valid Critical or Important findings go to a fresh `gpt-5.6-terra` `xhigh` correction subagent using `superpowers:receiving-code-review`, followed by a fresh Sol re-review.
+- Every `gpt-5.6-terra` and `gpt-5.6-sol` agent uses `high` reasoning, including implementation and correction subagents plus initial, re-review, and final accumulated-diff reviewers; reserve `xhigh` for a future Luna agent only.
+- Each non-commit numbered step must be reviewed before it is checked or advanced: dispatch a fresh read-only `gpt-5.6-sol` reviewer using `superpowers:requesting-code-review`.
+- Valid Critical or Important findings go to a fresh `gpt-5.6-terra` correction subagent using `superpowers:receiving-code-review`, followed by a fresh Sol re-review.
 - Allow at most two correction/re-review loops per review gate. If Critical or Important findings remain after two loops, stop and request user direction; record Minor findings for later.
 - For the final Commit step, complete task verification, request a fresh Sol review of the accumulated task diff, resolve valid findings and re-review, update the plan checklists, and only then create the focused commit; no post-commit review is intended. A task is complete only after all steps are checked, its focused commit is created, and `git push origin main` succeeds.
 - Work directly on `main`; do not add CI/CD or GitHub Actions before the full v1 acceptance gate passes.
