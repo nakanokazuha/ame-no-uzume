@@ -4,6 +4,7 @@ from typing import Any
 
 import pytest
 from pydantic import TypeAdapter, ValidationError
+
 from yume_api.contracts.events import (
     AgentRemovedEvent,
     AgentSpawnedEvent,
@@ -199,10 +200,9 @@ def test_world_event_rejects_unknown_discriminators_and_schema_versions(
 
 def test_generated_schema_matches_current_world_event_model() -> None:
     schema_path = (
-        Path(__file__).resolve().parents[4]
-        / "packages/contracts/schemas/world-event.schema.json"
+        Path(__file__).resolve().parents[4] / "packages/contracts/schemas/world-event.schema.json"
     )
 
-    assert json.loads(schema_path.read_text(encoding="utf-8")) == TypeAdapter(
-        WorldEvent
-    ).json_schema()
+    assert (
+        json.loads(schema_path.read_text(encoding="utf-8")) == TypeAdapter(WorldEvent).json_schema()
+    )

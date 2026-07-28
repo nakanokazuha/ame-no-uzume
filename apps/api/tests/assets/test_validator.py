@@ -3,6 +3,7 @@ from pathlib import Path
 from shutil import copytree
 
 import pytest
+
 from yume_api.assets.validator import AssetPackError, load_and_validate_pack
 
 
@@ -32,9 +33,7 @@ def test_placeholder_pack_is_valid() -> None:
 
 def test_missing_atlas_is_rejected(tmp_path: Path) -> None:
     (tmp_path / "maps").mkdir()
-    (tmp_path / "maps" / "office.json").write_text(
-        '{"orientation":"isometric"}', encoding="utf-8"
-    )
+    (tmp_path / "maps" / "office.json").write_text('{"orientation":"isometric"}', encoding="utf-8")
     (tmp_path / "pack.json").write_text(
         '{"schema_version":1,"id":"test","name":"Test",'
         '"tile":{"width":64,"height":32},'
@@ -44,16 +43,14 @@ def test_missing_atlas_is_rejected(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(AssetPackError, match="atlases/missing.json"):
+    with pytest.raises(AssetPackError, match=r"atlases/missing\.json"):
         load_and_validate_pack(tmp_path)
 
 
 def test_missing_semantic_anchor_is_rejected(tmp_path: Path) -> None:
     (tmp_path / "maps").mkdir()
     (tmp_path / "atlases").mkdir()
-    (tmp_path / "maps" / "office.json").write_text(
-        '{"orientation":"isometric"}', encoding="utf-8"
-    )
+    (tmp_path / "maps" / "office.json").write_text('{"orientation":"isometric"}', encoding="utf-8")
     (tmp_path / "atlases" / "characters.json").write_text("{}", encoding="utf-8")
     (tmp_path / "pack.json").write_text(
         '{"schema_version":1,"id":"test","name":"Test",'
@@ -71,9 +68,7 @@ def test_missing_semantic_anchor_is_rejected(tmp_path: Path) -> None:
 def test_non_isometric_map_is_rejected(tmp_path: Path) -> None:
     (tmp_path / "maps").mkdir()
     (tmp_path / "atlases").mkdir()
-    (tmp_path / "maps" / "office.json").write_text(
-        '{"orientation":"orthogonal"}', encoding="utf-8"
-    )
+    (tmp_path / "maps" / "office.json").write_text('{"orientation":"orthogonal"}', encoding="utf-8")
     (tmp_path / "atlases" / "characters.json").write_text("{}", encoding="utf-8")
     (tmp_path / "pack.json").write_text(
         '{"schema_version":1,"id":"test","name":"Test",'
@@ -143,7 +138,7 @@ def test_missing_atlas_image_is_rejected(tmp_path: Path) -> None:
     atlas["meta"]["image"] = "missing.png"
     write_json(atlas_path, atlas)
 
-    with pytest.raises(AssetPackError, match="atlases/missing.png"):
+    with pytest.raises(AssetPackError, match=r"atlases/missing\.png"):
         load_and_validate_pack(root)
 
 
@@ -165,7 +160,7 @@ def test_animation_frame_missing_from_atlas_is_rejected(tmp_path: Path) -> None:
     manifest["animations"]["worker-failed-sw"] = [99]
     write_json(manifest_path, manifest)
 
-    with pytest.raises(AssetPackError, match="worker-failed-sw.*frame-99"):
+    with pytest.raises(AssetPackError, match=r"worker-failed-sw.*frame-99"):
         load_and_validate_pack(root)
 
 
@@ -176,7 +171,7 @@ def test_atlas_frame_outside_image_is_rejected(tmp_path: Path) -> None:
     atlas["frames"]["frame-0"]["frame"]["w"] = 993
     write_json(atlas_path, atlas)
 
-    with pytest.raises(AssetPackError, match="frame-0.*outside atlas image"):
+    with pytest.raises(AssetPackError, match=r"frame-0.*outside atlas image"):
         load_and_validate_pack(root)
 
 
@@ -307,7 +302,7 @@ def test_missing_ui_atlas_is_rejected(tmp_path: Path) -> None:
     }
     write_json(manifest_path, manifest)
 
-    with pytest.raises(AssetPackError, match="atlases/missing-ui.json"):
+    with pytest.raises(AssetPackError, match=r"atlases/missing-ui\.json"):
         load_and_validate_pack(root)
 
 

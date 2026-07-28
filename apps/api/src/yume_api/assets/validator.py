@@ -35,6 +35,7 @@ REQUIRED_MAP_LAYERS = {"floor", "walls", "furniture-low", "furniture-high"}
 TILE_SIZE = (64, 32)
 CHARACTER_SIZE = (32, 48)
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+PNG_HEADER_SIZE = 24
 
 
 class AssetPackError(ValueError):
@@ -223,9 +224,7 @@ def _validate_walkability(
                 reachable.add(next_index)
                 pending.append(next_index)
 
-    unreachable = sorted(
-        name for name, index in anchor_indices.items() if index not in reachable
-    )
+    unreachable = sorted(name for name, index in anchor_indices.items() if index not in reachable)
     if unreachable:
         raise AssetPackError(f"unreachable semantic anchors: {unreachable}")
 
@@ -263,9 +262,7 @@ def _validate_atlas(
             source_size.get("w"),
             source_size.get("h"),
         ) != (manifest.character.width, manifest.character.height):
-            raise AssetPackError(
-                f"atlas frame {name} source size must match character dimensions"
-            )
+            raise AssetPackError(f"atlas frame {name} source size must match character dimensions")
     return frames
 
 
@@ -285,9 +282,9 @@ def _png_dimensions(root: Path, path: Path) -> tuple[int, int]:
         data = path.read_bytes()
     except OSError as error:
         raise AssetPackError(f"invalid PNG: {_pack_path(root, path)} ({error})") from error
-    if len(data) < 24 or data[:8] != PNG_SIGNATURE or data[12:16] != b"IHDR":
+    if len(data) < PNG_HEADER_SIZE or data[:8] != PNG_SIGNATURE or data[12:16] != b"IHDR":
         raise AssetPackError(f"invalid PNG: {_pack_path(root, path)}")
-    width, height = struct.unpack(">II", data[16:24])
+    width, height = struct.unpack(">II", data[16:PNG_HEADER_SIZE])
     if width == 0 or height == 0:
         raise AssetPackError(f"invalid PNG dimensions: {_pack_path(root, path)}")
     return width, height

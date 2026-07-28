@@ -6,12 +6,13 @@ dev:
 		"pnpm --dir apps/web dev"
 
 test:
-	uv run --package yume-api pytest
+	uv run --package yume-api pytest apps/api/tests
 	pnpm test
 
 lint:
-	uv run --package yume-api ruff check apps/api
-	uv run --package yume-api mypy apps/api/src
+	cd apps/api && uv run ruff format --check .
+	cd apps/api && uv run ruff check .
+	cd apps/api && uv run ty check src tests
 	pnpm lint
 	pnpm typecheck
 

@@ -14,7 +14,7 @@ These commands become available during Core Task 1:
 
 - `make dev`: run the API and Vite development servers.
 - `make test`: run Python and TypeScript tests.
-- `make lint`: run Ruff, mypy, ESLint, and TypeScript checks.
+- `make lint`: run Ruff, ty, ESLint, and TypeScript checks.
 - `make build`: build the frontend and Python package.
 - `pnpm e2e`: run Playwright against fake Hermes.
 - `make assets-export` / `make assets-validate`: export and validate production artwork after the asset plan adds them.

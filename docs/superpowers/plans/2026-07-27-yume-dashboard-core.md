@@ -8,7 +8,7 @@
 
 **Architecture:** A single FastAPI process serves the built Vite application, owns the Hermes credential, normalizes Hermes payloads into versioned domain events, and broadcasts snapshots and ordered events over WebSocket. React owns floating UI, Phaser owns the isometric world, and both consume generated TypeScript contracts plus one frontend world store.
 
-**Tech Stack:** Python 3.13, uv, FastAPI, Pydantic 2, HTTPX, pytest, Ruff, mypy; Node.js 24 LTS, pnpm, React 19, Vite 8.1, TypeScript, Phaser 4, Zustand, Vitest, Testing Library, Playwright; Docker Desktop 4.34+.
+**Tech Stack:** Python 3.13, uv, FastAPI, Pydantic 2, HTTPX, pytest, Ruff, ty; Node.js 24 LTS, pnpm, React 19, Vite 8.1, TypeScript, Phaser 4, Zustand, Vitest, Testing Library, Playwright; Docker Desktop 4.34+.
 
 ## Global Constraints
 
@@ -110,7 +110,7 @@ corepack enable
 pnpm create vite apps/web --template react-ts
 uv init --app --package apps/api --python 3.13
 uv add --package yume-api fastapi httpx pydantic-settings uvicorn
-uv add --package yume-api --dev mypy pytest pytest-asyncio respx ruff
+uv add --package yume-api --dev ty pytest pytest-asyncio respx ruff
 pnpm --dir apps/web add -D vitest jsdom @testing-library/react @testing-library/jest-dom @testing-library/user-event
 pnpm add -Dw concurrently
 ```
@@ -264,7 +264,7 @@ test:
 
 lint:
 	uv run --package yume-api ruff check apps/api
-	uv run --package yume-api mypy apps/api/src
+	uv run --package yume-api ty check apps/api/src
 	pnpm lint
 	pnpm typecheck
 
@@ -2988,7 +2988,7 @@ Include explicit warnings that Hermes grants terminal and file-tool access, the 
 
 - [ ] **Step 4: Update repository guidance**
 
-Replace planning-phase wording in `AGENTS.md` with the implemented monorepo structure and verified commands. Retain the language-convention skill gates; the per-non-commit-step Sol review and Terra correction protocol; the two-loop maximum and its Critical, Important, and Minor-finding outcomes; the final Commit-step sequence of verification, accumulated-diff review, correction/re-review, and plan-checklist updates before commit with no post-commit review; the task-level commit-and-push policy; direct `main` workflow; and pre-v1 CI/CD prohibition. Document Python `snake_case`, TypeScript `camelCase`/React `PascalCase`, Ruff, mypy, ESLint, Vitest, pytest, Playwright, and Conventional Commits.
+Replace planning-phase wording in `AGENTS.md` with the implemented monorepo structure and verified commands. Retain the language-convention skill gates; the per-non-commit-step Sol review and Terra correction protocol; the two-loop maximum and its Critical, Important, and Minor-finding outcomes; the final Commit-step sequence of verification, accumulated-diff review, correction/re-review, and plan-checklist updates before commit with no post-commit review; the task-level commit-and-push policy; direct `main` workflow; and pre-v1 CI/CD prohibition. Document Python `snake_case`, TypeScript `camelCase`/React `PascalCase`, Ruff, ty, ESLint, Vitest, pytest, Playwright, and Conventional Commits.
 
 - [ ] **Step 5: Run fresh final verification**
 

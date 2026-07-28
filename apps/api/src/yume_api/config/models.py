@@ -1,9 +1,23 @@
-from pydantic import BaseModel, Field
+import re
+
+from pydantic import BaseModel, Field, field_validator
+
+from yume_api.contracts.events import RoomId
 
 
 class RoomRule(BaseModel):
     pattern: str
-    room: str
+    room: RoomId
+
+    @field_validator("pattern")
+    @classmethod
+    def validate_pattern(cls, value: str) -> str:
+        try:
+            re.compile(value)
+        except re.error as error:
+            msg = f"invalid regular expression: {error}"
+            raise ValueError(msg) from error
+        return value
 
 
 class DashboardConfig(BaseModel):
