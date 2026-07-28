@@ -1253,7 +1253,7 @@ git commit -m "feat: connect persistent dashboard session to Hermes"
 - Produces: `HermesNormalizer.normalize(event, context) -> list[WorldEvent]`
 - Produces: `WorldReducer.apply(event: WorldEvent) -> WorldSnapshot`
 
-- [x] **Step 1: Write failing verified-first behavior tests**
+- [ ] **Step 1: Write failing verified-first behavior tests**
 
 ```python
 def test_unknown_tool_maps_to_work() -> None:
@@ -1279,13 +1279,13 @@ def test_delegate_tool_spawns_generic_verified_worker() -> None:
     assert spawned.payload.task_summary is None
 ```
 
-- [x] **Step 2: Run domain tests and verify failure**
+- [ ] **Step 2: Run domain tests and verify failure**
 
 Run: `uv run --package yume-api pytest apps/api/tests/domain -q`
 
 Expected: FAIL because policy, normalizer, and reducer do not exist.
 
-- [x] **Step 3: Implement ordered room rules**
+- [ ] **Step 3: Implement ordered room rules**
 
 ```python
 from fnmatch import fnmatch
@@ -1313,7 +1313,7 @@ class RoomPolicy:
         return "work"
 ```
 
-- [x] **Step 4: Implement deterministic event normalization**
+- [ ] **Step 4: Implement deterministic event normalization**
 
 ```python
 from yume_api.contracts.events import WorldEvent
@@ -1556,7 +1556,7 @@ def test_event_factory_output_validates(event: WorldEvent) -> None:
     assert TypeAdapter(WorldEvent).validate_python(event.model_dump()) == event
 ```
 
-- [x] **Step 5: Implement the authoritative reducer**
+- [ ] **Step 5: Implement the authoritative reducer**
 
 ```python
 from yume_api.contracts.events import AgentView, WorldSnapshot
@@ -1615,13 +1615,13 @@ class WorldReducer:
         return self.snapshot.model_copy(deep=True)
 ```
 
-- [x] **Step 6: Run all domain tests**
+- [ ] **Step 6: Run all domain tests**
 
 Run: `uv run --package yume-api pytest apps/api/tests/domain -q`
 
 Expected: PASS, including delegation, approval, completion, failure, and unknown-tool cases.
 
-- [x] **Step 7: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add apps/api/src/yume_api/domain apps/api/tests/domain
@@ -1714,16 +1714,25 @@ class WorldService:
         session_id = await self._session.ensure_session()
         async with self._task_lock:
             history = self._reducer.snapshot.conversation
-            await self.publish(make_user_message(text, self._reducer.snapshot.sequence + 1))
-            async for raw in self._client.stream_task(
-                self._capabilities, session_id, text, history
-            ):
-                for event in self._normalizer.normalize(
-                    raw, self._reducer.snapshot.sequence + 1
+            self._normalizer.reset()
+            try:
+                await self.publish(make_user_message(text, self._reducer.snapshot.sequence + 1))
+                async for raw in self._client.stream_task(
+                    self._capabilities, session_id, text, history
                 ):
-                    await self.publish(event)
+                    for event in self._normalizer.normalize(
+                        raw, self._reducer.snapshot.sequence + 1
+                    ):
+                        await self.publish(event)
+            finally:
+                self._normalizer.reset()
     return session_id
 ```
+
+`WorldService` retains one normalizer, so it must call `reset()` before each
+task stream and again in the `finally` block. This scopes native assistant
+deltas to one submitted task even when the stream is interrupted without a
+terminal Hermes event.
 
 At application startup, call `ensure_session`, then `get_session_messages`, and seed `snapshot.session_id` and `snapshot.conversation` before accepting browser connections. If the persisted session returns 404, create exactly one replacement session, persist it atomically, and start with an empty conversation.
 

@@ -75,6 +75,10 @@ class HermesNormalizer:
         handler = self._handlers.get(event.event)
         return handler(event.data, sequence) if handler else []
 
+    def reset(self) -> None:
+        """Discard native assistant text accumulated for the current task stream."""
+        self._native_assistant_text = ""
+
     def _assistant_delta(self, data: dict[str, Any], sequence: int) -> list[WorldEvent]:
         message_id = data.get("message_id")
         text = data.get("delta", data.get("text", ""))
@@ -94,7 +98,7 @@ class HermesNormalizer:
         completion_text = data.get("output")
         if completion_text is None:
             completion_text = data.get("text", self._native_assistant_text)
-        self._native_assistant_text = ""
+        self.reset()
         yume_idle = make_agent_state("yume", "idle", "ceo", sequence + 1)
         if not message_id:
             return [yume_idle]
@@ -135,6 +139,7 @@ class HermesNormalizer:
     def _run_completed(self, data: dict[str, Any], sequence: int) -> list[WorldEvent]:
         if not data.get("run_id"):
             return []
+        self.reset()
         return [
             make_conversation_completed(data, sequence),
             make_run_finished(data, "completed", sequence + 1),
@@ -155,6 +160,7 @@ class HermesNormalizer:
     ) -> list[WorldEvent]:
         if not data.get("run_id"):
             return []
+        self.reset()
         events: list[WorldEvent] = [make_run_finished(data, outcome, sequence)]
         agent_id = agent_id_from(data)
         if agent_id and agent_id != "yume":

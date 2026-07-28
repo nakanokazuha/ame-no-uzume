@@ -112,6 +112,37 @@ def test_native_session_text_is_completed_with_the_server_message_id() -> None:
     assert yume_state.payload.status == "idle"
 
 
+def test_reset_discards_partial_native_text_from_an_interrupted_task() -> None:
+    normalizer = _normalizer()
+
+    normalizer.normalize(_event("assistant.delta", {"text": "stale"}), 1)
+    normalizer.reset()
+    normalizer.normalize(_event("assistant.delta", {"text": "fresh"}), 2)
+    completed = normalizer.normalize(
+        _event("assistant.completed", {"message_id": "msg-2", "output": None}), 3
+    )
+
+    message = completed[0]
+    assert message.type == "conversation.completed"
+    assert message.payload.message_id == "msg-2"
+    assert message.payload.text == "fresh"
+
+
+def test_terminal_run_discards_partial_native_text() -> None:
+    normalizer = _normalizer()
+
+    normalizer.normalize(_event("assistant.delta", {"text": "stale"}), 1)
+    normalizer.normalize(_event("run.cancelled", {"run_id": "run-1"}), 2)
+    normalizer.normalize(_event("assistant.delta", {"text": "fresh"}), 3)
+    completed = normalizer.normalize(
+        _event("assistant.completed", {"message_id": "msg-2", "output": None}), 4
+    )
+
+    message = completed[0]
+    assert message.type == "conversation.completed"
+    assert message.payload.text == "fresh"
+
+
 def test_normalize_approval_marks_relevant_agent_then_requests_approval() -> None:
     events = _normalizer().normalize(
         _event(
