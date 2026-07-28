@@ -365,6 +365,26 @@ async def test_task_rejects_incompatible_capabilities() -> None:
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_stop_run_and_resolve_approval_use_the_compatible_runs_endpoints() -> None:
+    stop_route = respx.post("http://hermes/v1/runs/run-1/stop").mock(return_value=Response(204))
+    approval_route = respx.post("http://hermes/v1/runs/run-1/approval").mock(
+        return_value=Response(204)
+    )
+
+    async with HermesClient("http://hermes", "secret") as client:
+        await client.stop_run("run-1")
+        await client.resolve_approval("run-1", "approval-1", approved=False)
+
+    assert stop_route.called
+    assert approval_route.called
+    assert json.loads(approval_route.calls.last.request.content) == {
+        "approval_id": "approval-1",
+        "approved": False,
+    }
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_http_failure_never_discloses_the_bearer_token(
     caplog: pytest.LogCaptureFixture,
 ) -> None:

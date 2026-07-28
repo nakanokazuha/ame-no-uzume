@@ -160,6 +160,18 @@ class HermesClient:
         response.raise_for_status()
         return HermesRun.model_validate(response.json())
 
+    async def stop_run(self, run_id: str) -> None:
+        """Request a capability-advertised compatible run stop."""
+        response = await self._client.post(f"/v1/runs/{run_id}/stop")
+        response.raise_for_status()
+
+    async def resolve_approval(self, run_id: str, approval_id: str, *, approved: bool) -> None:
+        """Resolve a capability-advertised pending compatible-run approval."""
+        response = await self._client.post(
+            f"/v1/runs/{run_id}/approval", json={"approval_id": approval_id, "approved": approved}
+        )
+        response.raise_for_status()
+
 
 def extract_text(content: object) -> str:
     """Extract displayable text from a string or structured Hermes content."""

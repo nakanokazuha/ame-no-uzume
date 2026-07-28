@@ -12,6 +12,7 @@ __pycache__/
 .env.*
 !.env.example
 coverage/
+.coverage
 playwright-report/
 test-results/
 .DS_Store
