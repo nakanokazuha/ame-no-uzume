@@ -14,7 +14,7 @@ from yume_api.contracts.factories import make_connection_changed
 from yume_api.domain.normalizer import HermesNormalizer
 from yume_api.domain.reducer import WorldReducer
 from yume_api.domain.room_policy import RoomPolicy
-from yume_api.hermes.models import HermesCapabilities, HermesStreamEvent
+from yume_api.hermes.models import HermesCapabilities, HermesJob, HermesStreamEvent
 from yume_api.main import AppRuntime, create_app
 from yume_api.services.world import WorldService
 
@@ -47,6 +47,9 @@ class FakeHermes:
     async def get_session_messages(self, session_id: str) -> list[ConversationMessage]:
         assert session_id
         return self.messages
+
+    async def list_jobs(self) -> list[HermesJob]:
+        return []
 
     async def stream_task(
         self,

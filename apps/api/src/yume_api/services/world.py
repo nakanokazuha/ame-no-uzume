@@ -7,14 +7,20 @@ from typing import Protocol
 import httpx
 
 from yume_api.contracts.events import ConversationMessage, WorldEvent, WorldSnapshot
-from yume_api.contracts.factories import make_snapshot_event, make_user_message
+from yume_api.contracts.factories import (
+    make_connection_changed,
+    make_snapshot_event,
+    make_user_message,
+)
 from yume_api.domain.reducer import WorldReducer
-from yume_api.hermes.models import HermesCapabilities, HermesStreamEvent
+from yume_api.hermes.models import HermesCapabilities, HermesJob, HermesStreamEvent
+from yume_api.services.jobs import JobSynchronizer
 
 SUBSCRIBER_QUEUE_SIZE = 100
 TASK_ALREADY_RUNNING_MESSAGE = "a task is already running"
 INVALID_SUBSCRIBER_QUEUE_SIZE_MESSAGE = "subscriber queue size must be positive"
 NOT_FOUND_STATUS_CODE = 404
+JOB_POLL_INTERVAL_SECONDS = 60
 
 
 class WorldSession(Protocol):
@@ -28,7 +34,7 @@ class WorldSession(Protocol):
 
 
 class WorldClient(Protocol):
-    """Hermes operations needed to hydrate and stream one dashboard task."""
+    """Hermes operations needed to hydrate, stream, and discover dashboard work."""
 
     async def get_session_messages(self, session_id: str) -> list[ConversationMessage]:
         """Return the persisted dashboard transcript."""
@@ -41,6 +47,9 @@ class WorldClient(Protocol):
         history: list[ConversationMessage],
     ) -> AsyncIterator[HermesStreamEvent]:
         """Yield Hermes events for one task."""
+
+    async def list_jobs(self) -> list[HermesJob]:
+        """Return the verified scheduled jobs currently known to Hermes."""
 
 
 class WorldNormalizer(Protocol):
@@ -123,6 +132,7 @@ class WorldService:
         self._reducer = reducer
         self._capabilities = capabilities
         self._subscriber_queue_size = subscriber_queue_size
+        self._jobs = JobSynchronizer()
         self._subscribers: set[asyncio.Queue[WorldEvent]] = set()
         self._task_lock = asyncio.Lock()
 
@@ -149,6 +159,23 @@ class WorldService:
             session_id = await self._session.reset_session()
             conversation = []
         self._replace_snapshot(session_id, conversation, sequence=self._reducer.snapshot.sequence)
+
+    async def poll_jobs(self) -> None:
+        """Continuously reconcile confirmed Hermes scheduled jobs into the world."""
+        while True:
+            try:
+                jobs = await self._client.list_jobs()
+                for event in self._jobs.reconcile(
+                    jobs, self.snapshot(), self._reducer.snapshot.sequence + 1
+                ):
+                    await self.publish(event)
+            except (ValueError, httpx.RequestError, httpx.HTTPStatusError) as error:
+                await self.publish(
+                    make_connection_changed(
+                        "degraded", str(error), self._reducer.snapshot.sequence + 1
+                    )
+                )
+            await asyncio.sleep(JOB_POLL_INTERVAL_SECONDS)
 
     def subscribe(self) -> tuple[WorldSnapshot, WorldSubscription]:
         """Return one snapshot and a subscription registered before any later event.

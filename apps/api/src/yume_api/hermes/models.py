@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
@@ -58,6 +59,16 @@ class HermesSessionCreated(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     id: HermesIdentifier
+
+
+class HermesJob(BaseModel):
+    """Wire representation of one persistent Hermes scheduled job."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: HermesIdentifier
+    name: str
+    next_run_at: datetime | None = None
 
 
 class HermesRunCreated(BaseModel):

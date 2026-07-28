@@ -49,13 +49,14 @@ def make_agent_state(  # noqa: PLR0913
     evidence: EvidenceLevel = "verified",
     task_summary: str | None = None,
     next_run_at: datetime | None = None,
+    source: str = "hermes.session_stream",
 ) -> AgentStateChangedEvent:
     """Create a state update for an already-known agent."""
     return AgentStateChangedEvent(
         event_id=str(uuid4()),
         sequence=sequence,
         occurred_at=datetime.now(UTC),
-        source="hermes.session_stream",
+        source=source,
         evidence=evidence,
         type="agent.state_changed",
         agent_id=agent_id,
@@ -68,13 +69,15 @@ def make_agent_state(  # noqa: PLR0913
     )
 
 
-def make_agent_removed(agent_id: str, sequence: int) -> AgentRemovedEvent:
-    """Create a verified removal event for an ephemeral agent."""
+def make_agent_removed(
+    agent_id: str, sequence: int, *, source: str = "hermes.session_stream"
+) -> AgentRemovedEvent:
+    """Create a verified removal event."""
     return AgentRemovedEvent(
         event_id=str(uuid4()),
         sequence=sequence,
         occurred_at=datetime.now(UTC),
-        source="hermes.session_stream",
+        source=source,
         evidence="verified",
         type="agent.removed",
         agent_id=agent_id,
@@ -120,6 +123,7 @@ def make_agent_spawned(  # noqa: PLR0913
     task_summary: str | None = None,
     status: AgentStatus = "entering",
     next_run_at: datetime | None = None,
+    source: str = "hermes.session_stream",
 ) -> AgentSpawnedEvent:
     """Create a verified agent spawn event."""
     now = datetime.now(UTC)
@@ -127,7 +131,7 @@ def make_agent_spawned(  # noqa: PLR0913
         event_id=str(uuid4()),
         sequence=sequence,
         occurred_at=now,
-        source="hermes.session_stream",
+        source=source,
         evidence="verified",
         type="agent.spawned",
         agent_id=agent_id,

@@ -78,7 +78,7 @@ async def submit_task(body: TaskRequest, request: Request) -> dict[str, str]:
     text = body.text.strip()
     if not text:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "task text cannot be blank")
-    background_tasks: set[asyncio.Task[str]] = request.app.state.background_tasks
+    background_tasks: set[asyncio.Task[object]] = request.app.state.background_tasks
     try:
         reservation = await _world(request).reserve_task()
     except RuntimeError as error:
@@ -136,8 +136,8 @@ async def resolve_approval(
 
 
 def _complete_background_task(
-    task: asyncio.Task[str],
-    background_tasks: set[asyncio.Task[str]],
+    task: asyncio.Task[object],
+    background_tasks: set[asyncio.Task[object]],
     reservation: WorldTaskReservation,
 ) -> None:
     """Discard a completed task after observing and logging a stream failure."""

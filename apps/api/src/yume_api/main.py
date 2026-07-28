@@ -79,9 +79,10 @@ def create_app(*, runtime: AppRuntime | None = None) -> FastAPI:
                 active_runtime.world.set_capabilities(capabilities)
                 app.state.capabilities = capabilities
             await active_runtime.world.hydrate()
+            app.state.background_tasks.add(asyncio.create_task(active_runtime.world.poll_jobs()))
             yield
         finally:
-            background_tasks: set[asyncio.Task[str]] = app.state.background_tasks
+            background_tasks: set[asyncio.Task[object]] = app.state.background_tasks
             for task in tuple(background_tasks):
                 task.cancel()
             if background_tasks:

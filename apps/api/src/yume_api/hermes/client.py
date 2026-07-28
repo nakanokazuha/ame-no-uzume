@@ -11,6 +11,7 @@ from yume_api.hermes.models import (
     HermesCapabilities,
     HermesCapabilitiesResponse,
     HermesContentPart,
+    HermesJob,
     HermesRun,
     HermesRunCreated,
     HermesSessionCreated,
@@ -26,6 +27,7 @@ TERMINAL_RUN_EVENTS = frozenset({"run.completed", "run.failed", "run.cancelled"}
 RUNS_SSE_FALLBACK_MESSAGE = "Runs SSE is unavailable; polling for terminal status"
 _SESSION_MESSAGE_OBJECTS = TypeAdapter(list[dict[str, Any]])
 _MESSAGE_CONTENT = TypeAdapter(str | list[HermesContentPart])
+_HERMES_JOBS = TypeAdapter(list[HermesJob])
 logger = logging.getLogger(__name__)
 
 
@@ -94,6 +96,12 @@ class HermesClient:
                 )
             )
         return messages
+
+    async def list_jobs(self) -> list[HermesJob]:
+        """Return the persistent scheduled jobs known to Hermes."""
+        response = await self._client.get("/api/jobs")
+        response.raise_for_status()
+        return _HERMES_JOBS.validate_python(response.json())
 
     async def stream_task(
         self,
