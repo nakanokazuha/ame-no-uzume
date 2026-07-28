@@ -1,0 +1,1 @@
+"""Hermes Gateway API adapter."""

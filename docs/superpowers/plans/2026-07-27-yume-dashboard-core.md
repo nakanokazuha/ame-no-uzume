@@ -937,7 +937,7 @@ git commit -m "feat: add validated placeholder asset pack"
 - Produces: `SessionService.ensure_session() -> str`
 - Produces: `SessionService.reset_session() -> str`
 
-- [ ] **Step 1: Write failing client and session tests**
+- [x] **Step 1: Write failing client and session tests**
 
 ```python
 import pytest
@@ -999,13 +999,13 @@ async def test_task_falls_back_to_runs_when_session_stream_is_absent(fake_client
     assert events[-1].event == "run.completed"
 ```
 
-- [ ] **Step 2: Run the tests and verify failure**
+- [x] **Step 2: Run the tests and verify failure**
 
-Run: `uv run --package yume-api pytest apps/api/tests/hermes apps/api/tests/services/test_session.py -q`
+Run: `uv run --package yume-api pytest apps/api/tests/hermes apps/api/tests/services/test_session.py -q --no-cov`
 
 Expected: FAIL because the client and session service do not exist.
 
-- [ ] **Step 3: Implement capability and session models**
+- [x] **Step 3: Implement capability and session models**
 
 ```python
 from typing import Literal
@@ -1034,7 +1034,7 @@ class HermesRun(BaseModel):
     error: str | None = None
 ```
 
-- [ ] **Step 4: Implement authenticated HTTP calls and SSE parsing**
+- [x] **Step 4: Implement authenticated HTTP calls and SSE parsing**
 
 ```python
 from collections.abc import AsyncIterator
@@ -1154,9 +1154,13 @@ def extract_text(content: str | list[dict]) -> str:
     )
 
 def run_status_to_event(run: HermesRun) -> HermesStreamEvent:
-    name = "run.completed" if run.status == "completed" else "run.failed"
+    names = {
+        "completed": "run.completed",
+        "failed": "run.failed",
+        "cancelled": "run.cancelled",
+    }
     return HermesStreamEvent(
-        event=name,
+        event=names[run.status],
         data={"run_id": run.run_id, "output": run.output, "error": run.error},
     )
 ```
@@ -1184,7 +1188,7 @@ async def iter_sse(lines: AsyncIterator[str]) -> AsyncIterator[HermesStreamEvent
             event_name, data_lines = "message", []
 ```
 
-- [ ] **Step 5: Implement atomic session persistence**
+- [x] **Step 5: Implement atomic session persistence**
 
 ```python
 import json
@@ -1220,13 +1224,13 @@ class SessionService:
         os.replace(temporary, self._state_path)
 ```
 
-- [ ] **Step 6: Verify all Hermes client tests**
+- [x] **Step 6: Verify all Hermes client tests**
 
-Run: `uv run --package yume-api pytest apps/api/tests/hermes apps/api/tests/services/test_session.py -q`
+Run: `uv run --package yume-api pytest apps/api/tests/hermes apps/api/tests/services/test_session.py -q --no-cov`
 
-Expected: PASS.
+Expected: PASS. Run the complete API suite separately for the package-wide 80% coverage gate.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/api/src/yume_api/hermes apps/api/src/yume_api/services/session.py apps/api/tests/hermes apps/api/tests/services/test_session.py
