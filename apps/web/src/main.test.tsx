@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("./game/OfficeGame", () => ({
+  OfficeGame: () => <div className="office" data-testid="office-canvas" />,
+}));
+
 describe("application entrypoint", () => {
   beforeEach(() => {
     document.body.innerHTML = "";

@@ -98,4 +98,18 @@ describe("world event socket", () => {
     expect(socket?.close).toHaveBeenCalledOnce();
     expect(MockWebSocket.instances).toHaveLength(1);
   });
+
+  it("does not emit a transport state update after intentional cleanup", () => {
+    const onState = vi.fn();
+    const disconnect = connectWorldSocket("ws://dashboard.test/api/events", vi.fn(), onState);
+    const socket = MockWebSocket.instances[0];
+
+    socket?.open();
+    disconnect();
+    socket?.disconnect();
+
+    expect(onState).toHaveBeenCalledExactlyOnceWith(true);
+    vi.advanceTimersByTime(10_000);
+    expect(MockWebSocket.instances).toHaveLength(1);
+  });
 });

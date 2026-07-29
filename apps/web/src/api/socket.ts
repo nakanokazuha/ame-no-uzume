@@ -228,13 +228,10 @@ export function connectWorldSocket(
       }
     };
     nextSocket.onclose = (): void => {
-      if (socket !== nextSocket) {
+      if (cancelled || socket !== nextSocket) {
         return;
       }
       onState(false);
-      if (cancelled) {
-        return;
-      }
 
       const delay = reconnectDelay;
       reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY_MS);
