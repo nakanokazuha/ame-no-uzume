@@ -1,13 +1,21 @@
-import { useEffect, useState, type JSX } from "react";
+import { useEffect, useRef, useState, type JSX } from "react";
 import { useStore } from "zustand";
 import type { WorldSnapshot } from "@yume/contracts";
-import { getBootstrap, submitTask, type BootstrapResponse } from "../api/client";
+import {
+  getBootstrap,
+  getDiagnostics,
+  retryDiagnostics,
+  submitTask,
+  type BootstrapResponse,
+  type DiagnosticResponse,
+} from "../api/client";
 import { connectWorldSocket } from "../api/socket";
 import { OfficeGame } from "../game/OfficeGame";
 import { useWorldStore } from "../store/world";
 import { AgentInspector } from "../ui/AgentInspector";
 import { ChatPanel } from "../ui/ChatPanel";
 import { ConnectionOverlay } from "../ui/ConnectionOverlay";
+import { DiagnosticOverlay } from "../ui/DiagnosticOverlay";
 import { Hud } from "../ui/Hud";
 
 function clearSelectedAgent(): void {
@@ -35,7 +43,11 @@ function worldSocketUrl(): string {
 
 export function App(): JSX.Element {
   const [bootstrap, setBootstrap] = useState<BootstrapResponse | null>(null);
+  const [diagnostic, setDiagnostic] = useState<DiagnosticResponse | null>(null);
+  const [isRetryPending, setRetryPending] = useState(false);
   const [isSocketSynchronized, setSocketSynchronized] = useState(false);
+  const retryInitialization = useRef<() => void>(() => undefined);
+  const isRetryInFlight = useRef(false);
   const agents = useStore(useWorldStore, (state) => state.agents);
   const connection = useStore(useWorldStore, (state) => state.connection);
   const conversation = useStore(useWorldStore, (state) => state.conversation);
@@ -54,18 +66,37 @@ export function App(): JSX.Element {
 
   useEffect(() => {
     let cancelled = false;
+    let initializationGeneration = 0;
     let disconnectWorldSocket: (() => void) | undefined;
 
     const initialize = async (): Promise<void> => {
+      if (cancelled) {
+        return;
+      }
+      const generation = ++initializationGeneration;
+      disconnectWorldSocket?.();
+      disconnectWorldSocket = undefined;
+      setSocketSynchronized(false);
       try {
         const response = await getBootstrap();
-        if (cancelled) {
+        if (cancelled || generation !== initializationGeneration) {
           return;
         }
 
         hydrateWorld(response.world);
         setBootstrap(response);
-        disconnectWorldSocket = connectWorldSocket(
+        try {
+          const nextDiagnostic = await getDiagnostics();
+          if (!cancelled && generation === initializationGeneration) {
+            setDiagnostic(nextDiagnostic);
+          }
+        } catch {
+          // The operational scene remains usable if only diagnostics are unavailable.
+        }
+        if (cancelled || generation !== initializationGeneration) {
+          return;
+        }
+        const disconnectSocket = connectWorldSocket(
           worldSocketUrl(),
           (event) => {
             const previousSequence = useWorldStore.getState().sequence;
@@ -75,25 +106,63 @@ export function App(): JSX.Element {
               event.type === "snapshot.replaced"
                 ? event.sequence >= previousSequence
                 : event.sequence > previousSequence;
-            if (!cancelled && resynchronized) {
+            if (!cancelled && generation === initializationGeneration && resynchronized) {
               setSocketSynchronized(true);
             }
           },
           (transportOpen) => {
-            if (!cancelled && !transportOpen) {
+            if (!cancelled && generation === initializationGeneration && !transportOpen) {
               setSocketSynchronized(false);
             }
           },
         );
+        if (cancelled || generation !== initializationGeneration) {
+          disconnectSocket();
+          return;
+        }
+        disconnectWorldSocket = disconnectSocket;
       } catch {
-        // Task 11 owns diagnostics and retry UI. The office surface remains usable here.
+        try {
+          const nextDiagnostic = await getDiagnostics();
+          if (!cancelled && generation === initializationGeneration) {
+            setDiagnostic(nextDiagnostic);
+          }
+        } catch {
+          // Keep the office surface available when neither startup endpoint is reachable.
+        }
       }
     };
 
+    retryInitialization.current = () => {
+      if (cancelled || isRetryInFlight.current) {
+        return;
+      }
+      isRetryInFlight.current = true;
+      setRetryPending(true);
+      void (async () => {
+        try {
+          await retryDiagnostics();
+          if (!cancelled) {
+            await initialize();
+          }
+        } catch {
+          if (!cancelled) {
+            await initialize();
+          }
+        } finally {
+          isRetryInFlight.current = false;
+          if (!cancelled) {
+            setRetryPending(false);
+          }
+        }
+      })();
+    };
     void initialize();
 
     return () => {
       cancelled = true;
+      initializationGeneration += 1;
+      retryInitialization.current = () => undefined;
       disconnectWorldSocket?.();
     };
   }, []);
@@ -116,6 +185,13 @@ export function App(): JSX.Element {
         yume={yume}
       />
       <ConnectionOverlay connection={visibleConnection} />
+      {diagnostic && (
+        <DiagnosticOverlay
+          diagnostic={diagnostic}
+          isRetryPending={isRetryPending}
+          retry={retryInitialization.current}
+        />
+      )}
       {selectedAgent && (
         <AgentInspector agent={selectedAgent} onClose={clearSelectedAgent} />
       )}

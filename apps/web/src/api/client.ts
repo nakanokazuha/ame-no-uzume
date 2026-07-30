@@ -16,6 +16,12 @@ export type BootstrapResponse = {
   };
 };
 
+export type DiagnosticResponse = {
+  status: "ready" | "invalid_config" | "invalid_assets" | "hermes_unavailable";
+  file: string | null;
+  message: string;
+};
+
 async function responseError(response: Response, method: string, path: string): Promise<Error> {
   const body = (await response.text()).trim();
   const detail = body || response.statusText || "No response detail";
@@ -28,6 +34,22 @@ export async function getBootstrap(): Promise<BootstrapResponse> {
     throw await responseError(response, "GET", "/api/bootstrap");
   }
   return (await response.json()) as BootstrapResponse;
+}
+
+export async function getDiagnostics(): Promise<DiagnosticResponse> {
+  const response = await fetch("/api/diagnostics");
+  if (!response.ok) {
+    throw await responseError(response, "GET", "/api/diagnostics");
+  }
+  return (await response.json()) as DiagnosticResponse;
+}
+
+export async function retryDiagnostics(): Promise<DiagnosticResponse> {
+  const response = await fetch("/api/diagnostics/retry", { method: "POST" });
+  if (!response.ok) {
+    throw await responseError(response, "POST", "/api/diagnostics/retry");
+  }
+  return (await response.json()) as DiagnosticResponse;
 }
 
 export async function submitTask(text: string): Promise<void> {

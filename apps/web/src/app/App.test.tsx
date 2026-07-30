@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { AgentView } from "@yume/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -276,6 +276,78 @@ describe("App", () => {
       expect(fetchMock).toHaveBeenCalledWith("/api/bootstrap");
       expect(MockWebSocket.instances).toHaveLength(0);
     });
+  });
+
+  it("serializes rapid diagnostic retries and closes the retry socket on unmount", async () => {
+    let bootstrapAttempts = 0;
+    let resolveRetry: ((response: Response) => void) | undefined;
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      if (input === "/api/bootstrap") {
+        bootstrapAttempts += 1;
+        if (bootstrapAttempts === 1) {
+          return Promise.reject(new TypeError("offline"));
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify(bootstrap), {
+            headers: { "Content-Type": "application/json" },
+            status: 200,
+          }),
+        );
+      }
+      if (input === "/api/diagnostics") {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify(
+              bootstrapAttempts === 1
+                ? {
+                    status: "hermes_unavailable",
+                    file: null,
+                    message: "Hermes is starting",
+                  }
+                : { status: "ready", file: null, message: "" },
+            ),
+            {
+              headers: { "Content-Type": "application/json" },
+              status: 200,
+            },
+          ),
+        );
+      }
+      if (input === "/api/diagnostics/retry") {
+        return new Promise<Response>((resolve) => {
+          resolveRetry = resolve;
+        });
+      }
+      throw new Error(`Unexpected request: ${String(input)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { unmount } = render(<App />);
+
+    const retryButton = await screen.findByRole("button", { name: "Retry connection" });
+    act(() => {
+      fireEvent.click(retryButton);
+      fireEvent.click(retryButton);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(retryButton).toBeDisabled();
+    expect(resolveRetry).toBeDefined();
+
+    resolveRetry?.(
+      new Response(JSON.stringify({ status: "ready", file: null, message: "" }), {
+        headers: { "Content-Type": "application/json" },
+        status: 200,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(MockWebSocket.instances).toHaveLength(1);
+    });
+    const socket = MockWebSocket.instances[0];
+
+    unmount();
+    expect(socket?.close).toHaveBeenCalledOnce();
   });
 
   it("keeps raw world connection changes masked without socket synchronization", () => {

@@ -461,11 +461,12 @@ async def test_production_lifespan_discovers_capabilities_and_closes_owned_herme
         asset_pack=load_and_validate_pack(Path("asset-packs/placeholder")),
         close_hermes=True,
     )
-    monkeypatch.setattr(main_module, "_build_runtime", lambda: runtime)
+    monkeypatch.setattr(main_module, "_build_runtime", lambda _config, _asset_pack: runtime)
     app = create_app()
 
     async with app.router.lifespan_context(app):
         assert app.state.capabilities == HermesCapabilities(session_chat_stream=True, run_stop=True)
+        assert runtime.world.snapshot().connection == "connected"
         await runtime.world.submit_task("Verify discovered capabilities")
 
     assert hermes.discovered is True
@@ -506,7 +507,7 @@ async def test_production_lifespan_closes_owned_hermes_after_startup_failure(
         asset_pack=load_and_validate_pack(Path("asset-packs/placeholder")),
         close_hermes=True,
     )
-    monkeypatch.setattr(main_module, "_build_runtime", lambda: runtime)
+    monkeypatch.setattr(main_module, "_build_runtime", lambda _config, _asset_pack: runtime)
     app = create_app()
 
     with pytest.raises(RuntimeError, match=STARTUP_FAILURE_MESSAGE):
@@ -603,6 +604,35 @@ async def test_world_service_replaces_a_missing_persisted_session_once() -> None
     assert session.reset_count == 1
     assert world.snapshot().session_id == "session-2"
     assert world.snapshot().conversation == []
+
+
+@pytest.mark.asyncio
+async def test_world_service_reconnect_broadcasts_the_recovered_snapshot() -> None:
+    hermes = FakeHermes()
+    world = WorldService(
+        FakeSession(),
+        hermes,
+        HermesNormalizer(RoomPolicy([])),
+        WorldReducer(),
+        HermesCapabilities(session_chat_stream=True),
+    )
+    await world.hydrate()
+    original_snapshot = world.snapshot()
+    _, subscription = world.subscribe()
+    hermes.messages = [
+        ConversationMessage(message_id="m2", role="assistant", text="Recovered transcript")
+    ]
+
+    await world.reconnect(HermesCapabilities(session_chat_stream=True))
+    event = await anext(subscription)
+
+    assert event.type == "snapshot.replaced"
+    assert event.sequence == original_snapshot.sequence + 1
+    assert event.payload.snapshot.session_id == "session-1"
+    assert event.payload.snapshot.connection == "connected"
+    assert event.payload.snapshot.conversation == hermes.messages
+    assert world.snapshot() == event.payload.snapshot
+    await subscription.aclose()
 
 
 @pytest.mark.asyncio

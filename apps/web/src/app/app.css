@@ -142,6 +142,48 @@ textarea:focus-visible {
   text-align: center;
 }
 
+.diagnostic-overlay {
+  position: absolute;
+  z-index: 40;
+  top: 50%;
+  left: 50%;
+  width: min(420px, calc(100% - 32px));
+  padding: 18px;
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--yume-danger-border);
+  border-radius: 5px;
+  background: var(--yume-danger-background);
+  box-shadow: var(--yume-panel-shadow);
+  color: var(--yume-text);
+}
+
+.diagnostic-overlay h1 {
+  margin: 0 0 10px;
+  color: var(--yume-accent-strong);
+  font-family: var(--yume-font);
+  font-size: 1rem;
+}
+
+.diagnostic-overlay p {
+  margin: 10px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.diagnostic-overlay button {
+  min-height: 32px;
+  margin-top: 14px;
+  padding: 5px 9px;
+  border: 1px solid var(--yume-panel-border-soft);
+  border-radius: 3px;
+  background: var(--yume-control-background);
+  color: var(--yume-text);
+  cursor: pointer;
+}
+
+.diagnostic-overlay button:hover {
+  background: var(--yume-control-background-hover);
+}
+
 .chat-panel,
 .agent-inspector {
   border: 1px solid var(--yume-panel-border);

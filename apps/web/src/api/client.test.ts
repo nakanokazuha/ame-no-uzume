@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getBootstrap, submitTask } from "./client";
+import { getBootstrap, retryDiagnostics, submitTask } from "./client";
 
 describe("REST API client", () => {
   afterEach(() => {
@@ -34,6 +34,16 @@ describe("REST API client", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: "Inspect the task" }),
     });
+  });
+
+  it("retries Hermes startup diagnostics", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ status: "ready", file: null, message: "" })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(retryDiagnostics()).resolves.toEqual({ status: "ready", file: null, message: "" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/diagnostics/retry", { method: "POST" });
   });
 
   it("includes the endpoint, status, and response text in non-OK errors", async () => {

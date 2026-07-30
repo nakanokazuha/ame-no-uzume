@@ -160,6 +160,19 @@ class WorldService:
             conversation = []
         self._replace_snapshot(session_id, conversation, sequence=self._reducer.snapshot.sequence)
 
+    async def reconnect(self, capabilities: HermesCapabilities) -> None:
+        """Resynchronize Hermes state and publish the recovered connection to browsers."""
+        self.set_capabilities(capabilities)
+        await self.hydrate()
+        recovered_snapshot = self._reducer.snapshot.model_copy(
+            deep=True,
+            update={
+                "connection": "connected",
+                "sequence": self._reducer.snapshot.sequence + 1,
+            },
+        )
+        await self.publish(make_snapshot_event(recovered_snapshot))
+
     async def poll_jobs(self) -> None:
         """Continuously reconcile confirmed Hermes scheduled jobs into the world."""
         while True:
