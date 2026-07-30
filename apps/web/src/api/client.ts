@@ -62,3 +62,27 @@ export async function submitTask(text: string): Promise<void> {
     throw await responseError(response, "POST", "/api/tasks");
   }
 }
+
+export async function resetSession(): Promise<{ session_id: string }> {
+  const response = await fetch("/api/session/reset", { method: "POST" });
+  if (!response.ok) {
+    throw await responseError(response, "POST", "/api/session/reset");
+  }
+  return (await response.json()) as { session_id: string };
+}
+
+export async function resolveApproval(
+  runId: string,
+  approvalId: string,
+  approved: boolean,
+): Promise<void> {
+  const path = `/api/runs/${encodeURIComponent(runId)}/approval`;
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ approval_id: approvalId, approved }),
+  });
+  if (!response.ok) {
+    throw await responseError(response, "POST", path);
+  }
+}

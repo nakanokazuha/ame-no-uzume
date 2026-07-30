@@ -35,6 +35,7 @@ export interface ChatPanelProps {
   transcript?: ReactNode;
   streamingText?: string;
   onSubmit: (task: string) => Promise<void>;
+  onReset?: () => Promise<void>;
 }
 
 function viewportWidth(): number {
@@ -119,6 +120,7 @@ export function ChatPanel({
   transcript,
   streamingText = "",
   onSubmit,
+  onReset = async () => undefined,
 }: ChatPanelProps): JSX.Element {
   const [text, setText] = useState("");
   const [panelState, setPanelState] = useState(loadPanel);
@@ -271,6 +273,9 @@ export function ChatPanel({
             />
             <button disabled={disabled || isSubmitting || !text.trim()} type="submit">
               Send task
+            </button>
+            <button disabled={disabled || isSubmitting} onClick={() => void onReset()} type="button">
+              Reset conversation
             </button>
           </form>
         </>

@@ -53,7 +53,12 @@ class ApprovalDecision(BaseModel):
 
 
 def _world(request: Request) -> WorldService:
-    return request.app.state.world
+    try:
+        return request.app.state.world
+    except AttributeError as error:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "dashboard runtime is unavailable"
+        ) from error
 
 
 def _capabilities(request: Request) -> HermesCapabilities:

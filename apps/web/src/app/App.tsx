@@ -4,6 +4,8 @@ import type { WorldSnapshot } from "@yume/contracts";
 import {
   getBootstrap,
   getDiagnostics,
+  resetSession,
+  resolveApproval,
   retryDiagnostics,
   submitTask,
   type BootstrapResponse,
@@ -46,6 +48,13 @@ export function App(): JSX.Element {
   const [diagnostic, setDiagnostic] = useState<DiagnosticResponse | null>(null);
   const [isRetryPending, setRetryPending] = useState(false);
   const [isSocketSynchronized, setSocketSynchronized] = useState(false);
+  const [pendingApproval, setPendingApproval] = useState<{
+    runId: string;
+    approvalId: string;
+    prompt: string;
+  } | null>(null);
+  const [sessionResetNotice, setSessionResetNotice] = useState(false);
+  const [lastRunFailure, setLastRunFailure] = useState<string | null>(null);
   const retryInitialization = useRef<() => void>(() => undefined);
   const isRetryInFlight = useRef(false);
   const agents = useStore(useWorldStore, (state) => state.agents);
@@ -101,6 +110,16 @@ export function App(): JSX.Element {
           (event) => {
             const previousSequence = useWorldStore.getState().sequence;
             useWorldStore.getState().applyEvent(event);
+            if (event.type === "approval.requested") {
+              setPendingApproval({
+                runId: event.payload.run_id,
+                approvalId: event.payload.approval_id,
+                prompt: event.payload.prompt,
+              });
+            }
+            if (event.type === "run.finished" && event.payload.outcome === "failed") {
+              setLastRunFailure(event.payload.error ?? "Task failed");
+            }
 
             const resynchronized =
               event.type === "snapshot.replaced"
@@ -159,13 +178,39 @@ export function App(): JSX.Element {
     };
     void initialize();
 
+    const handleOffline = (): void => {
+      disconnectWorldSocket?.();
+      disconnectWorldSocket = undefined;
+      setSocketSynchronized(false);
+    };
+    const handleOnline = (): void => {
+      void initialize();
+    };
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+
     return () => {
       cancelled = true;
       initializationGeneration += 1;
       retryInitialization.current = () => undefined;
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
       disconnectWorldSocket?.();
     };
   }, []);
+
+  const resetConversation = async (): Promise<void> => {
+    await resetSession();
+    setSessionResetNotice(true);
+  };
+
+  const decideApproval = async (approved: boolean): Promise<void> => {
+    if (pendingApproval === null) {
+      return;
+    }
+    await resolveApproval(pendingApproval.runId, pendingApproval.approvalId, approved);
+    setPendingApproval(null);
+  };
 
   return (
     <main className="app">
@@ -195,8 +240,30 @@ export function App(): JSX.Element {
       {selectedAgent && (
         <AgentInspector agent={selectedAgent} onClose={clearSelectedAgent} />
       )}
+      <section aria-label="World activity" className="world-activity">
+        {agents.map((agent) => (
+          <p key={agent.agent_id}>
+            <strong>{agent.display_name}</strong>
+            {agent.task_summary ? ` — ${agent.task_summary}` : ""}
+          </p>
+        ))}
+        {lastRunFailure && <p>{lastRunFailure}</p>}
+        {sessionResetNotice && <p>Conversation reset</p>}
+      </section>
+      {pendingApproval && (
+        <section aria-label="Approval required" className="approval-controls">
+          <p>{pendingApproval.prompt}</p>
+          <button onClick={() => void decideApproval(true)} type="button">
+            Approve
+          </button>
+          <button onClick={() => void decideApproval(false)} type="button">
+            Deny
+          </button>
+        </section>
+      )}
       <ChatPanel
         disabled={visibleConnection !== "connected"}
+        onReset={resetConversation}
         onSubmit={submitTask}
         streamingText={streamingText}
         transcript={conversation.map((message) => (

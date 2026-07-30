@@ -1,0 +1,3 @@
+{"event":"assistant.delta","data":{"message_id":"assistant-streaming","delta":"First "}}
+{"event":"assistant.delta","data":{"message_id":"assistant-streaming","delta":"second final"},"delay_ms":150}
+{"event":"assistant.completed","data":{"message_id":"assistant-streaming","output":"First second final"},"delay_ms":150}

@@ -1,0 +1,4 @@
+{"event":"tool.started","data":{"tool_name":"delegate_task","run_id":"run-delegated","tool_call_id":"call-research","task_summary":"Research library"}}
+{"event":"assistant.delta","data":{"message_id":"assistant-delegated","delta":"Hooks research complete"},"delay_ms":250}
+{"event":"tool.completed","data":{"run_id":"run-delegated","tool_call_id":"call-research"},"delay_ms":250}
+{"event":"assistant.completed","data":{"message_id":"assistant-delegated","output":"Hooks research complete"}}

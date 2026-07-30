@@ -133,6 +133,30 @@ async def test_invalid_pack_still_serves_diagnostic(monkeypatch: pytest.MonkeyPa
 
 
 @pytest.mark.asyncio
+async def test_invalid_pack_rejects_bootstrap_without_an_unhandled_server_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        main_module,
+        "load_dashboard_config",
+        lambda _path: DashboardConfig(asset_pack="custom"),
+    )
+    monkeypatch.setattr(
+        main_module,
+        "load_and_validate_pack",
+        lambda _root: (_ for _ in ()).throw(AssetPackError("missing semantic anchors: ['lobby']")),
+    )
+    app = create_app()
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/bootstrap")
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "dashboard runtime is unavailable"}
+
+
+@pytest.mark.asyncio
 async def test_runtime_construction_os_error_escapes_startup(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
