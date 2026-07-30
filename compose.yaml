@@ -1,0 +1,23 @@
+services:
+  dashboard:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile
+    network_mode: host
+    env_file: .env
+    volumes:
+      - ./config/dashboard.yaml:/config/dashboard.yaml:ro
+      - ./asset-packs:/asset-packs:ro
+      - dashboard-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  dashboard-data:

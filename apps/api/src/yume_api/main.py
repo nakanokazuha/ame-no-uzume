@@ -30,6 +30,7 @@ from yume_api.hermes.client import HermesClient
 from yume_api.hermes.models import HermesCapabilities
 from yume_api.services.session import SessionService
 from yume_api.services.world import WorldService
+from yume_api.settings import Settings
 
 DEFAULT_CONFIG_PATH = Path("config/dashboard.example.yaml")
 DEFAULT_ASSET_PACK_ROOT = Path("asset-packs")
@@ -51,8 +52,9 @@ class AppRuntime:
 
 def _build_runtime(config: DashboardConfig, asset_pack: PackManifest) -> AppRuntime:
     """Construct live services after validated configuration and assets are available."""
-    hermes = HermesClient(config.hermes_base_url, os.environ["HERMES_API_KEY"])
-    session = SessionService(hermes, Path(config.data_dir) / SESSION_STATE_FILENAME)
+    settings = Settings()
+    hermes = HermesClient(settings.hermes_base_url, settings.hermes_api_key.get_secret_value())
+    session = SessionService(hermes, settings.data_dir / SESSION_STATE_FILENAME)
     normalizer = HermesNormalizer(
         RoomPolicy([(rule.pattern, rule.room) for rule in config.room_rules])
     )
@@ -68,7 +70,7 @@ def _build_runtime(config: DashboardConfig, asset_pack: PackManifest) -> AppRunt
 
 
 def _runtime_paths() -> tuple[Path, Path, Path]:
-    """Return process-level locations without introducing a settings dependency early."""
+    """Resolve source-tree paths unless the deployment supplies explicit overrides."""
     return (
         Path(os.environ.get("YUME_DASHBOARD_CONFIG", DEFAULT_CONFIG_PATH)),
         Path(os.environ.get("YUME_ASSET_PACK_ROOT", DEFAULT_ASSET_PACK_ROOT)),
