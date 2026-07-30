@@ -1,4 +1,4 @@
-.PHONY: dev test lint build
+.PHONY: dev test lint build verify
 
 dev:
 	concurrently --kill-others \
@@ -19,3 +19,10 @@ lint:
 build:
 	pnpm build
 	uv build --package yume-api
+
+verify:
+	$(MAKE) lint
+	$(MAKE) test
+	$(MAKE) build
+	pnpm e2e
+	docker build -f infra/docker/Dockerfile -t ame-no-uzume:release-candidate .
