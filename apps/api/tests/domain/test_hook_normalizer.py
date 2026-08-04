@@ -34,6 +34,17 @@ failed_stop_envelope = HookEnvelope.model_validate(
         "extra": {"child_subagent_id": "child-7", "child_status": "failed"},
     }
 )
+collision_start_envelope = HookEnvelope.model_validate(
+    {
+        **start_envelope.model_dump(mode="json"),
+        "event_id": "hook-collision",
+        "extra": {
+            "child_subagent_id": "run-1:call-1",
+            "child_role": "researcher",
+            "child_goal": "Keep this hook worker distinct",
+        },
+    }
+)
 
 
 def normalizer() -> HermesNormalizer:
@@ -49,6 +60,23 @@ def stream_spawn(sequence: int) -> AgentSpawnedEvent:
                 "tool_call_id": "call-1",
                 "tool_name": "delegate_task",
                 "child_subagent_id": "child-7",
+            },
+        ),
+        sequence,
+    )
+    spawned = events[0]
+    assert spawned.type == "agent.spawned"
+    return spawned
+
+
+def stream_fallback_spawn(sequence: int) -> AgentSpawnedEvent:
+    events = normalizer().normalize(
+        HermesStreamEvent(
+            event="tool.started",
+            data={
+                "run_id": "run-1",
+                "tool_call_id": "call-1",
+                "tool_name": "delegate_task",
             },
         ),
         sequence,
@@ -114,6 +142,29 @@ def test_explicit_child_id_keeps_hook_enrichment_for_both_arrival_orders(
         for agent in reducer.snapshot.agents
         if agent.agent_id.startswith("delegated:")
     ] == [("delegated:child-7", "Researcher", "Compare Hermes event hooks")]
+
+
+@pytest.mark.parametrize("arrival_order", ["hook-first", "stream-first"])
+def test_fallback_stream_identity_never_correlates_with_a_hook_child_id(
+    arrival_order: Literal["hook-first", "stream-first"],
+) -> None:
+    """A fallback run/call key must not collide with arbitrary hook child text."""
+    hook_first = arrival_order == "hook-first"
+    reducer = WorldReducer()
+    hook_spawn = normalizer().normalize_hook(
+        collision_start_envelope, sequence=1 if hook_first else 2
+    )[0]
+    fallback_spawn = stream_fallback_spawn(sequence=2 if hook_first else 1)
+
+    assert fallback_spawn.agent_id == "stream-delegated:run-1:call-1"
+
+    for event in (hook_spawn, fallback_spawn) if hook_first else (fallback_spawn, hook_spawn):
+        reducer.apply(event)
+
+    agents = {agent.agent_id: agent for agent in reducer.snapshot.agents}
+    assert set(agents) == {"yume", "delegated:run-1:call-1", "stream-delegated:run-1:call-1"}
+    assert agents["delegated:run-1:call-1"].display_name == "Researcher"
+    assert agents["stream-delegated:run-1:call-1"].display_name == "Delegated Worker"
 
 
 @pytest.mark.asyncio

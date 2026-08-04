@@ -247,4 +247,61 @@ describe("world store", () => {
       ]);
     },
   );
+
+  it.each(["stream-first", "hook-first"])(
+    "keeps a fallback stream worker separate from a hook child ID when events arrive %s",
+    (arrivalOrder) => {
+      const store = createWorldStore();
+      const streamEvent = {
+        ...baseEvent,
+        event_id: "stream-fallback-spawn",
+        sequence: arrivalOrder === "stream-first" ? 1 : 2,
+        source: "hermes.session_stream",
+        type: "agent.spawned" as const,
+        agent_id: "stream-delegated:run-1:call-1",
+        payload: {
+          kind: "delegated" as const,
+          display_name: "Delegated Worker",
+          status: "entering" as const,
+          room: "lobby" as const,
+        },
+      };
+      const hookEvent = {
+        ...baseEvent,
+        event_id: "hook-collision-spawn",
+        sequence: arrivalOrder === "hook-first" ? 1 : 2,
+        source: "hermes.hook",
+        type: "agent.spawned" as const,
+        agent_id: "delegated:run-1:call-1",
+        payload: {
+          kind: "delegated" as const,
+          display_name: "Researcher",
+          status: "entering" as const,
+          room: "lobby" as const,
+          task_summary: "Keep this hook worker distinct",
+        },
+      };
+
+      if (arrivalOrder === "stream-first") {
+        store.getState().applyEvent(streamEvent);
+        store.getState().applyEvent(hookEvent);
+      } else {
+        store.getState().applyEvent(hookEvent);
+        store.getState().applyEvent(streamEvent);
+      }
+
+      expect(store.getState().agents).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            agent_id: "delegated:run-1:call-1",
+            display_name: "Researcher",
+          }),
+          expect.objectContaining({
+            agent_id: "stream-delegated:run-1:call-1",
+            display_name: "Delegated Worker",
+          }),
+        ]),
+      );
+    },
+  );
 });

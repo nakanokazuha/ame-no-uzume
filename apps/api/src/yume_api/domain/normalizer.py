@@ -14,6 +14,9 @@ from yume_api.contracts.factories import (
     make_run_finished,
 )
 
+EXPLICIT_DELEGATED_PREFIX = "delegated:"
+STREAM_DELEGATED_PREFIX = "stream-delegated:"
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -24,15 +27,20 @@ if TYPE_CHECKING:
 
 
 def delegated_agent_id(data: dict[str, Any]) -> str | None:
-    """Return an explicit child ID before falling back to the generic stream identity."""
+    """Return an explicit child ID or a disjoint generic stream identity."""
     child_subagent_id = data.get("child_subagent_id")
     if isinstance(child_subagent_id, str) and child_subagent_id:
-        return f"delegated:{child_subagent_id}"
+        return f"{EXPLICIT_DELEGATED_PREFIX}{child_subagent_id}"
     run_id = data.get("run_id")
     tool_call_id = data.get("tool_call_id")
     if not run_id or not tool_call_id:
         return None
-    return f"delegated:{run_id}:{tool_call_id}"
+    return f"{STREAM_DELEGATED_PREFIX}{run_id}:{tool_call_id}"
+
+
+def is_delegated_agent_id(agent_id: str) -> bool:
+    """Return whether an ID belongs to either delegated-worker namespace."""
+    return agent_id.startswith((EXPLICIT_DELEGATED_PREFIX, STREAM_DELEGATED_PREFIX))
 
 
 def agent_id_from(data: dict[str, Any]) -> str | None:
@@ -105,7 +113,7 @@ class HermesNormalizer:
         child_id = envelope.extra.get("child_subagent_id")
         if child_id is None:
             return []
-        agent_id = f"delegated:{child_id}"
+        agent_id = f"{EXPLICIT_DELEGATED_PREFIX}{child_id}"
         if envelope.event == "subagent_start":
             role = envelope.extra.get("child_role")
             return [
@@ -219,7 +227,7 @@ class HermesNormalizer:
         agent_id = agent_id_from(data)
         if agent_id and agent_id != "yume":
             events.append(make_agent_state(agent_id, "failed", "work", sequence + len(events)))
-            if agent_id.startswith("delegated:"):
+            if is_delegated_agent_id(agent_id):
                 events.append(make_agent_removed(agent_id, sequence + len(events)))
         events.append(make_agent_state("yume", "idle", "ceo", sequence + len(events)))
         return events

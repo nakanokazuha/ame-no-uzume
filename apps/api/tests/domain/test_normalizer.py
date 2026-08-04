@@ -41,7 +41,7 @@ def test_delegate_tool_spawns_generic_verified_worker() -> None:
 
     spawned = events[0]
     assert spawned.type == "agent.spawned"
-    assert spawned.agent_id == "delegated:run-1:call-2"
+    assert spawned.agent_id == "stream-delegated:run-1:call-2"
     assert spawned.evidence == "verified"
     assert spawned.payload.display_name == "Delegated Worker"
     assert spawned.payload.room == "lobby"
@@ -85,7 +85,7 @@ def test_normalize_completed_delegation_emits_completion_then_removal() -> None:
     completed, removed = events
     assert completed.type == "agent.state_changed"
     assert removed.type == "agent.removed"
-    assert completed.agent_id == removed.agent_id == "delegated:run-1:call-2"
+    assert completed.agent_id == removed.agent_id == "stream-delegated:run-1:call-2"
     assert completed.payload.status == "completed"
 
 
@@ -214,7 +214,7 @@ def test_terminal_delegated_runs_emit_a_terminal_state_before_removal(
     assert finished.type == "run.finished"
     assert finished.payload.outcome == outcome
     assert worker_state.type == "agent.state_changed"
-    assert worker_state.agent_id == "delegated:run-1:call-2"
+    assert worker_state.agent_id == "stream-delegated:run-1:call-2"
     assert worker_state.payload.status == "failed"
     assert removed.type == "agent.removed"
     assert removed.agent_id == worker_state.agent_id
