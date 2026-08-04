@@ -6,6 +6,7 @@ const runIdentifier = `yume-e2e-${process.pid}`;
 const dashboardEnvironment = {
   HERMES_API_KEY: "e2e",
   HERMES_BASE_URL: "http://127.0.0.1:8642",
+  YUME_HOOK_TOKEN: "hook-secret",
   YUME_DASHBOARD_CONFIG: "config/dashboard.example.yaml",
   YUME_ASSET_PACK_ROOT: "asset-packs",
   YUME_WEB_DIST: "apps/web/dist",

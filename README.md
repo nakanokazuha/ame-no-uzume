@@ -51,6 +51,52 @@ pnpm e2e
 fixtures; it does not contact a live Hermes instance. `make verify` runs all of
 those checks plus the release-candidate Docker build.
 
+## Optional Hermes observability hook
+
+Standard Hermes stream telemetry works without any hook configuration. To opt
+in to verified delegated-worker role and goal telemetry, set one shared secret
+on the dashboard and in the Hermes process environment. The dashboard keeps
+the receiver route disabled when `YUME_HOOK_TOKEN` is omitted, so the standard
+telemetry mode remains fully supported.
+
+```sh
+# Add this to the dashboard .env, then restart docker compose or make dev.
+YUME_HOOK_TOKEN="$(openssl rand -hex 32)"
+
+# In the Hermes process environment, use the same secret.
+export YUME_HOOK_URL="http://127.0.0.1:8000/api/integrations/hermes/events"
+export YUME_HOOK_TOKEN="replace-with-the-dashboard-secret"
+```
+
+Install the emitter and add the printed `subagent_start` and `subagent_stop`
+configuration to Hermes yourself:
+
+```sh
+./integrations/hermes-hook/install.sh
+```
+
+Consent is per shell-hook command. Run the synthetic event below and approve
+only the displayed Yume observer command when Hermes asks for first-use
+consent; then check the installed hook configuration:
+
+```sh
+hermes hooks test subagent_start \
+  --payload-file integrations/hermes-hook/tests/fixtures/start.json
+hermes hooks doctor
+```
+
+To remove the opt-in, delete the two hook entries from the Hermes
+configuration, revoke their consent, remove the installed emitter, and unset
+the hook environment variables. Remove `YUME_HOOK_TOKEN` from the dashboard
+`.env` and restart the dashboard to disable its receiver route.
+
+```sh
+hermes hooks revoke "~/.hermes/agent-hooks/yume-observer.py subagent_start"
+hermes hooks revoke "~/.hermes/agent-hooks/yume-observer.py subagent_stop"
+rm ~/.hermes/agent-hooks/yume-observer.py
+unset YUME_HOOK_URL YUME_HOOK_TOKEN
+```
+
 ## Configuration and assets
 
 `config/dashboard.yaml` selects the asset pack and room rules. Start from

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "event_id": "e2e-hook-start",
+  "occurred_at": "2026-08-04T00:00:00Z",
+  "event": "subagent_start",
+  "session_id": "session-e2e-hook",
+  "extra": {
+    "child_subagent_id": "child-e2e",
+    "child_role": "researcher",
+    "child_goal": "Compare Hermes event hooks"
+  }
+}

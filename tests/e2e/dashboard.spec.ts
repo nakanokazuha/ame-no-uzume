@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import startEnvelope from "../fake_hermes/fixtures/hook-start.json";
 
 async function submitTask(page: Page, text: string): Promise<void> {
   await page.getByLabel("Task for Yume").fill(text);
@@ -13,12 +14,51 @@ async function selectScenario(
   await expect(response).toBeOK();
 }
 
+async function selectLobbyAgent(page: Page): Promise<void> {
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+  const box = await canvas.boundingBox();
+  if (box === null) {
+    throw new Error("Office canvas has no visible bounds");
+  }
+
+  const desiredZoom = Math.min(box.width / 768, box.height / 384);
+  const zoom = [1, 1.5, 2].reduce((closest, level) =>
+    Math.abs(level - desiredZoom) < Math.abs(closest - desiredZoom) ? level : closest,
+  );
+  const scrollX = Math.max(0, (768 - box.width / zoom) / 2);
+  const scrollY = Math.max(0, (384 - box.height / zoom) / 2);
+  await page.mouse.click(
+    box.x + (544 - scrollX) * zoom,
+    box.y + (208 - scrollY) * zoom,
+  );
+}
+
 test("initial connection reports a connected idle Yume", async ({ page, request }) => {
   await selectScenario(request, "initial-connection");
   await page.goto("/?scenario=initial-connection");
 
   await expect(page.getByText("Hermes connected")).toBeVisible();
   await expect(page.getByText("Yume is idle")).toBeVisible();
+});
+
+test("enhanced telemetry shows verified role and goal", async ({ page, request }) => {
+  await page.goto("http://127.0.0.1:8000");
+  const ingestion = await request.post("http://127.0.0.1:8000/api/integrations/hermes/events", {
+    headers: { Authorization: "Bearer hook-secret" },
+    data: startEnvelope,
+  });
+  await expect(ingestion).toBeOK();
+
+  await expect(page.getByText("Telemetry: enhanced")).toBeVisible();
+  await expect(page.getByText("Researcher")).toBeVisible();
+  await selectLobbyAgent(page);
+
+  const inspector = page.getByRole("complementary", { name: "Researcher details" });
+  await expect(inspector).toBeVisible();
+  await expect(inspector.getByText("Delegated worker")).toBeVisible();
+  await expect(inspector.getByText("Verified")).toBeVisible();
+  await expect(inspector.getByText("Compare Hermes event hooks")).toBeVisible();
 });
 
 test("scheduled discovery adds the persistent automation worker", async ({ page, request }) => {
