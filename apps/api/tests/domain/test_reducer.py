@@ -111,3 +111,109 @@ def test_reducer_replaces_snapshot_with_independent_copy() -> None:
 
     assert snapshot.sequence == 51
     assert snapshot.agents[0].status == "thinking"
+
+
+def test_reducer_blocks_delayed_stream_events_after_a_hook_stop_until_the_hook_restarts() -> None:
+    reducer = WorldReducer()
+    worker_id = "delegated:child-session-7"
+    yume_snapshot = WorldSnapshot(
+        sequence=1,
+        connection="connected",
+        telemetry_mode="enhanced",
+        agents=[
+            AgentView(
+                agent_id="yume",
+                kind="yume",
+                display_name="Yume",
+                status="idle",
+                room="ceo",
+                evidence="verified",
+            )
+        ],
+    )
+    reducer.apply(make_snapshot_event(yume_snapshot))
+    reducer.apply(
+        make_agent_spawned(
+            worker_id,
+            "delegated",
+            "Researcher",
+            "lobby",
+            2,
+            source="hermes.hook",
+        )
+    )
+    reducer.apply(make_agent_removed(worker_id, 3, source="hermes.hook"))
+    reducer.apply(make_snapshot_event(yume_snapshot.model_copy(update={"sequence": 4})))
+
+    reducer.apply(make_agent_spawned(worker_id, "delegated", "Delegated Worker", "lobby", 5))
+
+    assert [agent.agent_id for agent in reducer.snapshot.agents] == ["yume"]
+
+    reopened = reducer.apply(
+        make_agent_spawned(
+            worker_id,
+            "delegated",
+            "Researcher",
+            "lobby",
+            6,
+            source="hermes.hook",
+        )
+    )
+
+    assert [agent.agent_id for agent in reopened.agents] == ["yume", worker_id]
+
+
+def test_reducer_evicts_the_oldest_hook_terminal_tombstone_at_its_bound() -> None:
+    reducer = WorldReducer()
+    reducer.apply(
+        make_snapshot_event(
+            WorldSnapshot(sequence=1, connection="connected", telemetry_mode="enhanced", agents=[])
+        )
+    )
+    for index in range(1_001):
+        reducer.apply(
+            make_agent_removed(f"delegated:child-{index}", index + 2, source="hermes.hook")
+        )
+
+    snapshot = reducer.apply(
+        make_agent_spawned("delegated:child-0", "delegated", "Stream worker", "lobby", 1_003)
+    )
+    snapshot = reducer.apply(
+        make_agent_spawned("delegated:child-1", "delegated", "Stream worker", "lobby", 1_004)
+    )
+
+    assert [agent.agent_id for agent in snapshot.agents] == ["delegated:child-0"]
+
+
+def test_reducer_snapshot_reintroduces_a_tombstoned_agent_authoritatively() -> None:
+    reducer = WorldReducer()
+    worker_id = "delegated:child-session-7"
+    reducer.apply(
+        make_snapshot_event(
+            WorldSnapshot(sequence=1, connection="connected", telemetry_mode="enhanced", agents=[])
+        )
+    )
+    reducer.apply(make_agent_removed(worker_id, 2, source="hermes.hook"))
+    reducer.apply(
+        make_snapshot_event(
+            WorldSnapshot(
+                sequence=3,
+                connection="connected",
+                telemetry_mode="enhanced",
+                agents=[
+                    AgentView(
+                        agent_id=worker_id,
+                        kind="delegated",
+                        display_name="Researcher",
+                        status="working",
+                        room="work",
+                        evidence="verified",
+                    )
+                ],
+            )
+        )
+    )
+
+    snapshot = reducer.apply(make_agent_state(worker_id, "completed", "work", 4))
+
+    assert snapshot.agents[0].status == "completed"

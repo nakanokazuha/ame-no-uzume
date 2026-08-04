@@ -9,6 +9,7 @@ export type WorldState = WorldSnapshot & {
   streamingMessageId: string | null;
   selectedAgentId: string | null;
   hookOwnedAgentIds: ReadonlySet<string>;
+  hookTerminalAgentIds: ReadonlySet<string>;
   applyEvent: (event: WorldEvent) => void;
   selectAgent: (agentId: string | null) => void;
 };
@@ -25,6 +26,7 @@ const initialWorldState: Pick<
   | "streamingMessageId"
   | "selectedAgentId"
   | "hookOwnedAgentIds"
+  | "hookTerminalAgentIds"
 > = {
   sequence: 0,
   connection: "starting",
@@ -36,9 +38,14 @@ const initialWorldState: Pick<
   streamingMessageId: null,
   selectedAgentId: null,
   hookOwnedAgentIds: new Set(),
+  hookTerminalAgentIds: new Set(),
 };
 
+const STREAM_DELEGATED_PREFIX = "stream-delegated:";
+const MAX_HOOK_TERMINAL_AGENT_IDS = 1_000;
+
 function replaceSnapshot(state: WorldState, snapshot: WorldSnapshot): WorldState {
+  const snapshotAgentIds = new Set(snapshot.agents.map((agent) => agent.agent_id));
   return {
     ...state,
     sequence: snapshot.sequence,
@@ -50,9 +57,10 @@ function replaceSnapshot(state: WorldState, snapshot: WorldSnapshot): WorldState
     streamingText: "",
     streamingMessageId: null,
     hookOwnedAgentIds: new Set(
-      [...state.hookOwnedAgentIds].filter((agentId) =>
-        snapshot.agents.some((agent) => agent.agent_id === agentId),
-      ),
+      [...state.hookOwnedAgentIds].filter((agentId) => snapshotAgentIds.has(agentId)),
+    ),
+    hookTerminalAgentIds: new Set(
+      [...state.hookTerminalAgentIds].filter((agentId) => !snapshotAgentIds.has(agentId)),
     ),
   };
 }
@@ -65,11 +73,30 @@ function hasAgentId(event: WorldEvent): event is Extract<WorldEvent, { agent_id:
   return "agent_id" in event && typeof event.agent_id === "string";
 }
 
+function addHookTerminalAgent(
+  terminalAgentIds: ReadonlySet<string>,
+  agentId: string,
+): ReadonlySet<string> {
+  const nextTerminalAgentIds = new Set(terminalAgentIds);
+  nextTerminalAgentIds.delete(agentId);
+  nextTerminalAgentIds.add(agentId);
+  if (nextTerminalAgentIds.size > MAX_HOOK_TERMINAL_AGENT_IDS) {
+    const oldestAgentId = nextTerminalAgentIds.values().next().value;
+    if (oldestAgentId !== undefined) {
+      nextTerminalAgentIds.delete(oldestAgentId);
+    }
+  }
+  return nextTerminalAgentIds;
+}
+
 function isHookOwnedStreamEvent(state: WorldState, event: WorldEvent): boolean {
   return (
     event.source === "hermes.session_stream" &&
     hasAgentId(event) &&
-    state.hookOwnedAgentIds.has(event.agent_id)
+    (state.hookOwnedAgentIds.has(event.agent_id) ||
+      state.hookTerminalAgentIds.has(event.agent_id) ||
+      (state.telemetry_mode === "enhanced" &&
+        event.agent_id.startsWith(STREAM_DELEGATED_PREFIX)))
   );
 }
 
@@ -127,11 +154,26 @@ export function reduceWorldEvent(state: WorldState, event: WorldEvent): WorldSta
       };
       return {
         ...withSequence(state, event.sequence),
-        agents: [...state.agents.filter((current) => current.agent_id !== event.agent_id), agent],
+        agents: [
+          ...state.agents.filter(
+            (current) =>
+              current.agent_id !== event.agent_id &&
+              !(event.source === "hermes.hook" &&
+                state.telemetry_mode === "enhanced" &&
+                current.agent_id.startsWith(STREAM_DELEGATED_PREFIX)),
+          ),
+          agent,
+        ],
         hookOwnedAgentIds:
           event.source === "hermes.hook"
             ? new Set([...state.hookOwnedAgentIds, event.agent_id])
             : state.hookOwnedAgentIds,
+        hookTerminalAgentIds:
+          event.source === "hermes.hook"
+            ? new Set(
+                [...state.hookTerminalAgentIds].filter((agentId) => agentId !== event.agent_id),
+              )
+            : state.hookTerminalAgentIds,
       };
     }
     case "agent.state_changed":
@@ -169,6 +211,10 @@ export function reduceWorldEvent(state: WorldState, event: WorldEvent): WorldSta
                 [...state.hookOwnedAgentIds].filter((agentId) => agentId !== event.agent_id),
               )
             : state.hookOwnedAgentIds,
+        hookTerminalAgentIds:
+          event.source === "hermes.hook"
+            ? addHookTerminalAgent(state.hookTerminalAgentIds, event.agent_id)
+            : state.hookTerminalAgentIds,
       };
     case "approval.requested":
     case "approval.resolved":

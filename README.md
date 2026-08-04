@@ -79,6 +79,10 @@ export YUME_HOOK_TOKEN="replace-with-the-same-generated-token"
 export YUME_HOOK_URL="http://127.0.0.1:8000/api/integrations/hermes/events"
 ```
 
+For safety, the emitter only accepts an `http://` URL with a literal loopback
+IP address (`127.0.0.0/8` or `[::1]`); it rejects hostnames, non-loopback
+destinations, URL credentials, and redirects.
+
 Install the emitter and add the printed `subagent_start` and `subagent_stop`
 configuration to Hermes yourself:
 
@@ -86,20 +90,32 @@ configuration to Hermes yourself:
 ./integrations/hermes-hook/install.sh
 ```
 
-Consent is per shell-hook command. Run the synthetic event below and approve
-only the displayed Yume observer command when Hermes asks for first-use
-consent; then check the installed hook configuration:
+Hermes 0.18.2 approval is per shell-hook command. `hermes hooks test` executes
+an already-configured hook but does not create an approval entry. Instead,
+start a normal Hermes agent on a TTY and approve only the displayed Yume
+observer commands when each hook first runs. For deliberate non-interactive
+approval, start that normal agent with `hermes --accept-hooks` or set
+`HERMES_ACCEPT_HOOKS=1` for that process.
+
+After both commands are approved, `hermes hooks test` is useful only as a
+transport check. Run `doctor` and confirm that both `subagent_start` and
+`subagent_stop` observer commands are allowlisted:
 
 ```sh
 hermes hooks test subagent_start \
   --payload-file integrations/hermes-hook/tests/fixtures/start.json
+hermes hooks test subagent_stop \
+  --payload-file integrations/hermes-hook/tests/fixtures/stop.json
 hermes hooks doctor
 ```
 
 To remove the opt-in, delete the two hook entries from the Hermes
-configuration, revoke their consent, remove the installed emitter, and unset
-the hook environment variables. Remove `YUME_HOOK_TOKEN` from the dashboard
-`.env` and restart the dashboard to disable its receiver route.
+configuration, revoke the two exact observer commands, remove the installed
+emitter, and unset the hook environment variables. Remove `YUME_HOOK_TOKEN`
+from the dashboard `.env` and restart the dashboard to disable its receiver
+route. Revocation applies to newly started Hermes CLI or gateway processes;
+restart the relevant Hermes process because callbacks already registered in a
+running process remain active until it restarts.
 
 ```sh
 hermes hooks revoke "~/.hermes/agent-hooks/yume-observer.py subagent_start"

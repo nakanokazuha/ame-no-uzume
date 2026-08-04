@@ -185,27 +185,33 @@ def test_explicit_child_id_keeps_hook_enrichment_for_both_arrival_orders(
     ] == [("delegated:child-7", "Researcher", "Compare Hermes event hooks")]
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("arrival_order", ["hook-first", "stream-first"])
-def test_fallback_stream_identity_never_correlates_with_a_hook_child_id(
+async def test_enhanced_hook_telemetry_replaces_generic_stream_placeholders(
     arrival_order: Literal["hook-first", "stream-first"],
 ) -> None:
-    """A fallback run/call key must not collide with arbitrary hook child text."""
-    hook_first = arrival_order == "hook-first"
-    reducer = WorldReducer()
-    hook_spawn = normalizer().normalize_hook(
-        collision_start_envelope, sequence=1 if hook_first else 2
-    )[0]
-    fallback_spawn = stream_fallback_spawn(sequence=2 if hook_first else 1)
-
+    """Enhanced hooks supersede generic placeholders without correlating their identities."""
+    service = WorldService(
+        cast("WorldSession", object()),
+        cast("WorldClient", object()),
+        normalizer(),
+        WorldReducer(),
+        HermesCapabilities(),
+    )
+    fallback_spawn = stream_fallback_spawn(sequence=1)
     assert fallback_spawn.agent_id == "stream-delegated:run-1:call-1"
 
-    for event in (hook_spawn, fallback_spawn) if hook_first else (fallback_spawn, hook_spawn):
-        reducer.apply(event)
+    if arrival_order == "stream-first":
+        await service.publish(fallback_spawn)
+        await service.ingest_hook(native_start_envelope)
+    else:
+        await service.ingest_hook(native_start_envelope)
+        await service.publish(stream_fallback_spawn(service.snapshot().sequence + 1))
 
-    agents = {agent.agent_id: agent for agent in reducer.snapshot.agents}
-    assert set(agents) == {"yume", "delegated:run-1:call-1", "stream-delegated:run-1:call-1"}
-    assert agents["delegated:run-1:call-1"].display_name == "Researcher"
-    assert agents["stream-delegated:run-1:call-1"].display_name == "Delegated Worker"
+    assert [agent.agent_id for agent in service.snapshot().agents] == [
+        "yume",
+        "delegated:child-session-7",
+    ]
 
 
 @pytest.mark.asyncio

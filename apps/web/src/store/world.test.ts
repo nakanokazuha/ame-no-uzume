@@ -249,13 +249,13 @@ describe("world store", () => {
   );
 
   it.each(["stream-first", "hook-first"])(
-    "keeps a fallback stream worker separate from a hook child ID when events arrive %s",
+    "replaces generic stream placeholders with enhanced hook telemetry when events arrive %s",
     (arrivalOrder) => {
       const store = createWorldStore();
       const streamEvent = {
         ...baseEvent,
         event_id: "stream-fallback-spawn",
-        sequence: arrivalOrder === "stream-first" ? 1 : 2,
+        sequence: arrivalOrder === "stream-first" ? 1 : 3,
         source: "hermes.session_stream",
         type: "agent.spawned" as const,
         agent_id: "stream-delegated:run-1:call-1",
@@ -268,11 +268,11 @@ describe("world store", () => {
       };
       const hookEvent = {
         ...baseEvent,
-        event_id: "hook-collision-spawn",
-        sequence: arrivalOrder === "hook-first" ? 1 : 2,
+        event_id: "hook-spawn",
+        sequence: arrivalOrder === "hook-first" ? 2 : 3,
         source: "hermes.hook",
         type: "agent.spawned" as const,
-        agent_id: "delegated:run-1:call-1",
+        agent_id: "delegated:child-session-7",
         payload: {
           kind: "delegated" as const,
           display_name: "Researcher",
@@ -284,24 +284,273 @@ describe("world store", () => {
 
       if (arrivalOrder === "stream-first") {
         store.getState().applyEvent(streamEvent);
+        store.getState().applyEvent({
+          ...baseEvent,
+          event_id: "enhanced-snapshot",
+          sequence: 2,
+          type: "snapshot.replaced",
+          payload: {
+            snapshot: {
+              sequence: 2,
+              connection: "connected",
+              telemetry_mode: "enhanced",
+              agents: [
+                {
+                  agent_id: "stream-delegated:run-1:call-1",
+                  kind: "delegated",
+                  display_name: "Delegated Worker",
+                  status: "entering",
+                  room: "lobby",
+                  evidence: "verified",
+                },
+              ],
+            },
+          },
+        });
         store.getState().applyEvent(hookEvent);
       } else {
+        store.getState().applyEvent({
+          ...baseEvent,
+          event_id: "enhanced-snapshot",
+          sequence: 1,
+          type: "snapshot.replaced",
+          payload: {
+            snapshot: {
+              sequence: 1,
+              connection: "connected",
+              telemetry_mode: "enhanced",
+              agents: [],
+            },
+          },
+        });
         store.getState().applyEvent(hookEvent);
         store.getState().applyEvent(streamEvent);
       }
 
-      expect(store.getState().agents).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            agent_id: "delegated:run-1:call-1",
-            display_name: "Researcher",
-          }),
-          expect.objectContaining({
-            agent_id: "stream-delegated:run-1:call-1",
-            display_name: "Delegated Worker",
-          }),
-        ]),
-      );
+      expect(store.getState().agents).toEqual([
+        expect.objectContaining({
+          agent_id: "delegated:child-session-7",
+          display_name: "Researcher",
+        }),
+      ]);
     },
   );
+
+  it("blocks a delayed stream worker after hook removal until a new hook lifecycle starts", () => {
+    const store = createWorldStore();
+    const workerId = "delegated:child-session-7";
+
+    store.getState().applyEvent({
+      ...baseEvent,
+      event_id: "enhanced-snapshot",
+      sequence: 1,
+      type: "snapshot.replaced",
+      payload: {
+        snapshot: {
+          sequence: 1,
+          connection: "connected",
+          telemetry_mode: "enhanced",
+          agents: [],
+        },
+      },
+    });
+    store.getState().applyEvent({
+      ...baseEvent,
+      event_id: "hook-start",
+      sequence: 2,
+      source: "hermes.hook",
+      type: "agent.spawned",
+      agent_id: workerId,
+      payload: {
+        kind: "delegated",
+        display_name: "Researcher",
+        status: "entering",
+        room: "lobby",
+      },
+    });
+    store.getState().applyEvent({
+      ...baseEvent,
+      event_id: "hook-stop",
+      sequence: 3,
+      source: "hermes.hook",
+      type: "agent.removed",
+      agent_id: workerId,
+      payload: {},
+    });
+    store.getState().applyEvent({
+      ...baseEvent,
+      event_id: "replacement-snapshot",
+      sequence: 4,
+      type: "snapshot.replaced",
+      payload: {
+        snapshot: {
+          sequence: 4,
+          connection: "connected",
+          telemetry_mode: "enhanced",
+          agents: [],
+        },
+      },
+    });
+    store.getState().applyEvent({
+      ...baseEvent,
+      event_id: "delayed-stream-spawn",
+      sequence: 5,
+      source: "hermes.session_stream",
+      type: "agent.spawned",
+      agent_id: workerId,
+      payload: {
+        kind: "delegated",
+        display_name: "Delegated Worker",
+        status: "entering",
+        room: "lobby",
+      },
+    });
+
+    expect(store.getState().agents).toEqual([]);
+
+    store.getState().applyEvent({
+      ...baseEvent,
+      event_id: "reused-hook-start",
+      sequence: 6,
+      source: "hermes.hook",
+      type: "agent.spawned",
+      agent_id: workerId,
+      payload: {
+        kind: "delegated",
+        display_name: "Researcher",
+        status: "entering",
+        room: "lobby",
+      },
+    });
+
+    expect(store.getState().agents).toEqual([
+      expect.objectContaining({ agent_id: workerId, display_name: "Researcher" }),
+    ]);
+  });
+
+  it("evicts the oldest hook terminal tombstone at its bound", () => {
+    const store = createWorldStore();
+    store.getState().applyEvent({
+      ...baseEvent,
+      event_id: "enhanced-snapshot",
+      sequence: 1,
+      type: "snapshot.replaced",
+      payload: {
+        snapshot: {
+          sequence: 1,
+          connection: "connected",
+          telemetry_mode: "enhanced",
+          agents: [],
+        },
+      },
+    });
+    for (let index = 0; index < 1_001; index += 1) {
+      store.getState().applyEvent({
+        ...baseEvent,
+        event_id: `hook-stop-${index}`,
+        sequence: index + 2,
+        source: "hermes.hook",
+        type: "agent.removed",
+        agent_id: `delegated:child-${index}`,
+        payload: {},
+      });
+    }
+
+    store.getState().applyEvent({
+      ...baseEvent,
+      event_id: "evicted-stream-spawn",
+      sequence: 1_003,
+      source: "hermes.session_stream",
+      type: "agent.spawned",
+      agent_id: "delegated:child-0",
+      payload: {
+        kind: "delegated",
+        display_name: "Stream worker",
+        status: "entering",
+        room: "lobby",
+      },
+    });
+    store.getState().applyEvent({
+      ...baseEvent,
+      event_id: "retained-stream-spawn",
+      sequence: 1_004,
+      source: "hermes.session_stream",
+      type: "agent.spawned",
+      agent_id: "delegated:child-1",
+      payload: {
+        kind: "delegated",
+        display_name: "Stream worker",
+        status: "entering",
+        room: "lobby",
+      },
+    });
+
+    expect(store.getState().agents).toEqual([
+      expect.objectContaining({ agent_id: "delegated:child-0" }),
+    ]);
+  });
+
+  it("accepts an authoritative snapshot that reintroduces a tombstoned agent", () => {
+    const store = createWorldStore();
+    const workerId = "delegated:child-session-7";
+    store.getState().applyEvent({
+      ...baseEvent,
+      event_id: "enhanced-snapshot",
+      sequence: 1,
+      type: "snapshot.replaced",
+      payload: {
+        snapshot: {
+          sequence: 1,
+          connection: "connected",
+          telemetry_mode: "enhanced",
+          agents: [],
+        },
+      },
+    });
+    store.getState().applyEvent({
+      ...baseEvent,
+      event_id: "hook-stop",
+      sequence: 2,
+      source: "hermes.hook",
+      type: "agent.removed",
+      agent_id: workerId,
+      payload: {},
+    });
+    store.getState().applyEvent({
+      ...baseEvent,
+      event_id: "authoritative-snapshot",
+      sequence: 3,
+      type: "snapshot.replaced",
+      payload: {
+        snapshot: {
+          sequence: 3,
+          connection: "connected",
+          telemetry_mode: "enhanced",
+          agents: [
+            {
+              agent_id: workerId,
+              kind: "delegated",
+              display_name: "Researcher",
+              status: "working",
+              room: "work",
+              evidence: "verified",
+            },
+          ],
+        },
+      },
+    });
+    store.getState().applyEvent({
+      ...baseEvent,
+      event_id: "stream-state",
+      sequence: 4,
+      source: "hermes.session_stream",
+      type: "agent.state_changed",
+      agent_id: workerId,
+      payload: { status: "completed", room: "work" },
+    });
+
+    expect(store.getState().agents).toEqual([
+      expect.objectContaining({ agent_id: workerId, status: "completed" }),
+    ]);
+  });
 });

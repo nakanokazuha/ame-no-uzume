@@ -1,3 +1,5 @@
+# Merge these entries into an existing top-level hooks mapping. Do not add a
+# second hooks: key or replace unrelated configured hooks.
 hooks:
   subagent_start:
     - command: "~/.hermes/agent-hooks/yume-observer.py subagent_start"

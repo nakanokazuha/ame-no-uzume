@@ -7,7 +7,11 @@ import sys
 import uuid
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
-from urllib.request import Request, urlopen
+from http.client import HTTPMessage
+from ipaddress import ip_address
+from typing import IO
+from urllib.parse import urlsplit
+from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 HOOK_TIMEOUT_SECONDS = 1
 MAX_SESSION_ID_LENGTH = 256
@@ -34,6 +38,43 @@ TEXT_FIELDS = {
         "child_status": MAX_CHILD_STATUS_LENGTH,
     },
 }
+
+
+class NoRedirectHandler(HTTPRedirectHandler):
+    """Reject redirects so the hook credential is never replayed elsewhere."""
+
+    def redirect_request(
+        self,
+        req: Request,
+        fp: IO[bytes],
+        code: int,
+        msg: str,
+        headers: HTTPMessage,
+        newurl: str,
+    ) -> Request | None:
+        """Refuse every redirect target before urllib can issue a follow-up request."""
+        return None
+
+
+def _loopback_hook_url() -> str:
+    """Return a literal loopback HTTP endpoint or raise before creating a request."""
+    hook_url = os.environ["YUME_HOOK_URL"]
+    parsed = urlsplit(hook_url)
+    if (
+        parsed.scheme != "http"
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        raise ValueError("YUME_HOOK_URL must be a credential-free HTTP URL")
+    hostname = parsed.hostname
+    if hostname is None or not ip_address(hostname).is_loopback:
+        raise ValueError("YUME_HOOK_URL must use a literal loopback IP address")
+    port = parsed.port
+    if port is None:
+        literal_host = f"[{hostname}]" if ":" in hostname else hostname
+        if parsed.netloc != literal_host:
+            raise ValueError("YUME_HOOK_URL contains a malformed port")
+    return hook_url
 
 
 def _bounded_text(value: object, maximum_length: int) -> str | None:
@@ -96,7 +137,7 @@ def emit(event: str, payload: dict[str, object]) -> dict[str, object]:
             "extra": _approved_extra(event, payload),
         }
         request = Request(
-            os.environ["YUME_HOOK_URL"],
+            _loopback_hook_url(),
             data=json.dumps(envelope).encode(),
             headers={
                 "Authorization": f"Bearer {os.environ['YUME_HOOK_TOKEN']}",
@@ -104,7 +145,9 @@ def emit(event: str, payload: dict[str, object]) -> dict[str, object]:
             },
             method="POST",
         )
-        response = urlopen(request, timeout=HOOK_TIMEOUT_SECONDS)
+        response = build_opener(ProxyHandler({}), NoRedirectHandler()).open(
+            request, timeout=HOOK_TIMEOUT_SECONDS
+        )
         response.close()
     except Exception:  # noqa: BLE001 - shell hooks must never interrupt Hermes.
         return {}
