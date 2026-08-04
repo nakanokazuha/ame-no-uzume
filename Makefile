@@ -6,7 +6,7 @@ dev:
 		"pnpm --dir apps/web dev"
 
 test:
-	uv run --package yume-api pytest apps/api/tests
+	uv run --package yume-api pytest apps/api/tests integrations/hermes-hook/tests
 	pnpm test
 
 lint:
