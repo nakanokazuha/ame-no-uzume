@@ -2,7 +2,11 @@
 
 import importlib
 import json
+import socket
+import subprocess
 import sys
+from pathlib import Path
+from threading import Thread
 from types import ModuleType
 from typing import Any
 
@@ -24,8 +28,8 @@ def capture_request(
     sent: dict[str, Any] = {}
 
     class Response:
-        def read(self) -> bytes:
-            return b""
+        def close(self) -> None:
+            return None
 
     def fake_urlopen(request: Any, *, timeout: float) -> Response:
         sent.update(json.loads(request.data.decode("utf-8")))
@@ -113,3 +117,87 @@ def test_subagent_stop_removes_raw_tool_results(
         "duration_ms": 125,
         "tool_call_history": [{"tool_name": "web.search", "status": "completed"}],
     }
+
+
+def test_subagent_stop_drops_nested_sensitive_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Nested values in allowed fields must not cross the HTTP boundary."""
+    emitter = load_emitter(monkeypatch)
+    configure_hook(monkeypatch)
+    sent = capture_request(monkeypatch, emitter)
+
+    emitter.emit(
+        "subagent_stop",
+        {
+            "session_id": {"api_key": "nested-session-marker"},
+            "extra": {
+                "child_subagent_id": "child-7",
+                "child_role": {"api_key": "nested-role-marker"},
+                "child_status": "completed",
+                "duration_ms": {"raw_tool_result": "nested-duration-marker"},
+                "tool_call_history": [
+                    {
+                        "tool_name": {"api_key": "nested-tool-marker"},
+                        "status": ["raw-tool-result"],
+                    },
+                    {"tool_name": "web.search", "status": "completed"},
+                ],
+            },
+        },
+    )
+
+    assert sent["session_id"] == ""
+    assert sent["extra"] == {
+        "child_subagent_id": "child-7",
+        "child_status": "completed",
+        "tool_call_history": [{"tool_name": "web.search", "status": "completed"}],
+    }
+    assert "nested-" not in json.dumps(sent)
+
+
+def test_emit_returns_empty_when_transport_drops_connection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A reset while sending telemetry must not raise into the Hermes hook."""
+    emitter = load_emitter(monkeypatch)
+    configure_hook(monkeypatch)
+
+    def reset_connection(*_: object, **__: object) -> object:
+        raise ConnectionResetError("connection reset")
+
+    monkeypatch.setattr(emitter, "urlopen", reset_connection)
+
+    assert emitter.emit("subagent_start", {"session_id": "parent-1", "extra": {}}) == {}
+
+
+def test_cli_returns_empty_json_when_loopback_peer_drops_connection() -> None:
+    """A transport failure exits successfully with the exact hook response."""
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+    port = listener.getsockname()[1]
+
+    def drop_connection() -> None:
+        connection, _ = listener.accept()
+        connection.close()
+        listener.close()
+
+    worker = Thread(target=drop_connection)
+    worker.start()
+    emitter_path = Path(__file__).parents[1] / "emit.py"
+    completed = subprocess.run(
+        [sys.executable, str(emitter_path), "subagent_start"],
+        input=b'{"session_id": "parent-1", "extra": {}}',
+        capture_output=True,
+        check=False,
+        env={
+            "YUME_HOOK_URL": f"http://127.0.0.1:{port}/api/integrations/hermes/events",
+            "YUME_HOOK_TOKEN": "hook-secret",
+        },
+    )
+    worker.join(timeout=1)
+
+    assert completed.returncode == 0
+    assert completed.stdout == b"{}\n"
+    assert completed.stderr == b""

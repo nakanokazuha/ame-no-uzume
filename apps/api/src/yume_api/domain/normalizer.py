@@ -111,24 +111,25 @@ class HermesNormalizer:
     def normalize_hook(self, envelope: HookEnvelope, sequence: int) -> list[WorldEvent]:
         """Normalize one bounded lifecycle hook into verified worker telemetry."""
         child_id = envelope.extra.get("child_subagent_id")
-        if child_id is None:
+        if not isinstance(child_id, str):
             return []
         agent_id = f"{EXPLICIT_DELEGATED_PREFIX}{child_id}"
         if envelope.event == "subagent_start":
             role = envelope.extra.get("child_role")
+            goal = envelope.extra.get("child_goal")
             return [
                 make_agent_spawned(
                     agent_id,
                     "delegated",
-                    humanize_role(role) if role else "Delegated Worker",
+                    humanize_role(role) if isinstance(role, str) else "Delegated Worker",
                     "lobby",
                     sequence,
-                    task_summary=envelope.extra.get("child_goal"),
+                    task_summary=goal if isinstance(goal, str) else None,
                     source="hermes.hook",
                 )
             ]
         status = envelope.extra.get("child_status")
-        if status is None:
+        if not isinstance(status, str):
             return []
         return make_subagent_exit_events(
             agent_id,

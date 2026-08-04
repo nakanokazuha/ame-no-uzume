@@ -34,6 +34,18 @@ SAMPLE_START_ENVELOPE = {
     "session_id": "parent-1",
     "extra": SAMPLE_EXTRA,
 }
+SAMPLE_STOP_ENVELOPE = {
+    **SAMPLE_START_ENVELOPE,
+    "event_id": "hook-2",
+    "event": "subagent_stop",
+    "extra": {
+        "child_subagent_id": "child-7",
+        "child_role": "researcher",
+        "child_status": "completed",
+        "duration_ms": 125,
+        "tool_call_history": [{"tool_name": "web.search", "status": "completed"}],
+    },
+}
 
 
 class HookRuntime:
@@ -163,6 +175,27 @@ async def test_hook_rejects_overlong_allowed_extra(
 
     assert response.status_code == 422
     assert world.ingest_hook.await_count == 0
+
+
+@pytest.mark.asyncio
+async def test_hook_accepts_bounded_stop_metadata(
+    client_and_world: tuple[httpx.AsyncClient, AsyncMock],
+) -> None:
+    """The documented reduced stop metadata reaches the receiver unchanged."""
+    client, world = client_and_world
+
+    response = await client.post(
+        "/api/integrations/hermes/events",
+        headers={"Authorization": "Bearer hook-secret"},
+        json=SAMPLE_STOP_ENVELOPE,
+    )
+
+    assert response.json() == {"accepted": True}
+    received = world.ingest_hook.await_args.args[0]
+    assert received.extra["duration_ms"] == 125
+    assert received.model_dump(mode="json")["extra"]["tool_call_history"] == [
+        {"tool_name": "web.search", "status": "completed"}
+    ]
 
 
 @pytest.mark.asyncio
