@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "event_id": "e2e-hook-stop",
+  "occurred_at": "2026-08-04T00:00:01Z",
+  "event": "subagent_stop",
+  "session_id": "session-e2e-hook",
+  "extra": {
+    "child_subagent_id": "child-e2e",
+    "child_status": "completed",
+    "duration_ms": 1000
+  }
+}

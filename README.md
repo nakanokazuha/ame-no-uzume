@@ -60,12 +60,23 @@ the receiver route disabled when `YUME_HOOK_TOKEN` is omitted, so the standard
 telemetry mode remains fully supported.
 
 ```sh
-# Add this to the dashboard .env, then restart docker compose or make dev.
-YUME_HOOK_TOKEN="$(openssl rand -hex 32)"
+# Generate one token in a shell and copy its printed value.
+openssl rand -hex 32
+```
 
-# In the Hermes process environment, use the same secret.
+Paste that literal value into the dashboard `.env`; dotenv and Compose do not
+run shell substitutions. Restart Docker Compose or `make dev` afterward.
+
+```dotenv
+YUME_HOOK_TOKEN=replace-with-the-generated-token
+```
+
+Use the same literal value in the Hermes process environment:
+
+```sh
+export YUME_HOOK_TOKEN="replace-with-the-same-generated-token"
+
 export YUME_HOOK_URL="http://127.0.0.1:8000/api/integrations/hermes/events"
-export YUME_HOOK_TOKEN="replace-with-the-dashboard-secret"
 ```
 
 Install the emitter and add the printed `subagent_start` and `subagent_stop`
