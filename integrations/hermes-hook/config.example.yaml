@@ -1,0 +1,7 @@
+hooks:
+  subagent_start:
+    - command: "~/.hermes/agent-hooks/yume-observer.py subagent_start"
+      timeout: 2
+  subagent_stop:
+    - command: "~/.hermes/agent-hooks/yume-observer.py subagent_stop"
+      timeout: 2

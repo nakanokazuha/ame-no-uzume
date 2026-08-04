@@ -1,0 +1,8 @@
+{
+  "session_id": "parent-1",
+  "extra": {
+    "child_subagent_id": "child-7",
+    "child_role": "researcher",
+    "child_goal": "Compare hooks"
+  }
+}
