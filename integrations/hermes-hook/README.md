@@ -40,13 +40,18 @@ hooks:
 
 Only these source fields can leave Hermes:
 
-- `subagent_start`: `child_subagent_id`, `child_role`, `child_goal`
-- `subagent_stop`: `child_subagent_id`, `child_role`, `child_status`,
+- `subagent_start`: `child_session_id`, `child_subagent_id`, `child_role`,
+  `child_goal`
+- `subagent_stop`: `child_session_id`, `child_subagent_id`, `child_role`, `child_status`,
   `duration_ms`, and reduced `tool_call_history`
 
 For accepted tool history, each entry is reduced to only `tool_name` and
 `status`. Credentials, raw tool results, child summaries, and every other
 field are omitted.
+
+When Hermes supplies both IDs at start, Yume uses `child_session_id` as the
+worker identity because native stop hooks retain it. Older hook payloads that
+only contain `child_subagent_id` remain supported.
 
 ## Verify
 

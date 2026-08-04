@@ -11,6 +11,7 @@ from urllib.request import Request, urlopen
 
 HOOK_TIMEOUT_SECONDS = 1
 MAX_SESSION_ID_LENGTH = 256
+MAX_CHILD_SESSION_ID_LENGTH = 256
 MAX_CHILD_SUBAGENT_ID_LENGTH = 256
 MAX_CHILD_ROLE_LENGTH = 64
 MAX_CHILD_GOAL_LENGTH = 1_000
@@ -21,11 +22,13 @@ MAX_TOOL_NAME_LENGTH = 128
 MAX_TOOL_STATUS_LENGTH = 64
 TEXT_FIELDS = {
     "subagent_start": {
+        "child_session_id": MAX_CHILD_SESSION_ID_LENGTH,
         "child_subagent_id": MAX_CHILD_SUBAGENT_ID_LENGTH,
         "child_role": MAX_CHILD_ROLE_LENGTH,
         "child_goal": MAX_CHILD_GOAL_LENGTH,
     },
     "subagent_stop": {
+        "child_session_id": MAX_CHILD_SESSION_ID_LENGTH,
         "child_subagent_id": MAX_CHILD_SUBAGENT_ID_LENGTH,
         "child_role": MAX_CHILD_ROLE_LENGTH,
         "child_status": MAX_CHILD_STATUS_LENGTH,

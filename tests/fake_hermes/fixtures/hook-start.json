@@ -5,6 +5,7 @@
   "event": "subagent_start",
   "session_id": "session-e2e-hook",
   "extra": {
+    "child_session_id": "child-session-e2e",
     "child_subagent_id": "child-e2e",
     "child_role": "researcher",
     "child_goal": "Compare Hermes event hooks"

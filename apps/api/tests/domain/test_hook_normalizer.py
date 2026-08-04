@@ -34,6 +34,26 @@ failed_stop_envelope = HookEnvelope.model_validate(
         "extra": {"child_subagent_id": "child-7", "child_status": "failed"},
     }
 )
+native_start_envelope = HookEnvelope.model_validate(
+    {
+        **start_envelope.model_dump(mode="json"),
+        "event_id": "hook-native-start",
+        "extra": {
+            "child_session_id": "child-session-7",
+            "child_subagent_id": "child-7",
+            "child_role": "researcher",
+            "child_goal": "Compare native Hermes hooks",
+        },
+    }
+)
+native_stop_envelope = HookEnvelope.model_validate(
+    {
+        **native_start_envelope.model_dump(mode="json"),
+        "event_id": "hook-native-stop",
+        "event": "subagent_stop",
+        "extra": {"child_session_id": "child-session-7", "child_status": "completed"},
+    }
+)
 collision_start_envelope = HookEnvelope.model_validate(
     {
         **start_envelope.model_dump(mode="json"),
@@ -102,6 +122,27 @@ def test_subagent_stop_preserves_failure_status() -> None:
     assert [event.payload.status for event in events if event.type == "agent.state_changed"] == [
         "failed"
     ]
+
+
+@pytest.mark.asyncio
+async def test_native_session_id_removes_the_worker_started_with_both_native_ids() -> None:
+    """Use Hermes' child-session key when stop does not carry a subagent ID."""
+    service = WorldService(
+        cast("WorldSession", object()),
+        cast("WorldClient", object()),
+        normalizer(),
+        WorldReducer(),
+        HermesCapabilities(),
+    )
+
+    await service.ingest_hook(native_start_envelope)
+    assert [agent.agent_id for agent in service.snapshot().agents] == [
+        "yume",
+        "delegated:child-session-7",
+    ]
+    await service.ingest_hook(native_stop_envelope)
+
+    assert [agent.agent_id for agent in service.snapshot().agents] == ["yume"]
 
 
 def test_subagent_stop_requires_an_explicit_status() -> None:

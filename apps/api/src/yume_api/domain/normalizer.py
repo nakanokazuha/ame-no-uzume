@@ -38,6 +38,15 @@ def delegated_agent_id(data: dict[str, Any]) -> str | None:
     return f"{STREAM_DELEGATED_PREFIX}{run_id}:{tool_call_id}"
 
 
+def hook_delegated_agent_id(data: dict[str, Any]) -> str | None:
+    """Use Hermes' stable child session ID, falling back to legacy child IDs."""
+    for field in ("child_session_id", "child_subagent_id"):
+        child_id = data.get(field)
+        if isinstance(child_id, str) and child_id:
+            return f"{EXPLICIT_DELEGATED_PREFIX}{child_id}"
+    return None
+
+
 def is_delegated_agent_id(agent_id: str) -> bool:
     """Return whether an ID belongs to either delegated-worker namespace."""
     return agent_id.startswith((EXPLICIT_DELEGATED_PREFIX, STREAM_DELEGATED_PREFIX))
@@ -110,10 +119,9 @@ class HermesNormalizer:
 
     def normalize_hook(self, envelope: HookEnvelope, sequence: int) -> list[WorldEvent]:
         """Normalize one bounded lifecycle hook into verified worker telemetry."""
-        child_id = envelope.extra.get("child_subagent_id")
-        if not isinstance(child_id, str):
+        agent_id = hook_delegated_agent_id(envelope.extra)
+        if agent_id is None:
             return []
-        agent_id = f"{EXPLICIT_DELEGATED_PREFIX}{child_id}"
         if envelope.event == "subagent_start":
             role = envelope.extra.get("child_role")
             goal = envelope.extra.get("child_goal")

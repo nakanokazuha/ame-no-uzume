@@ -60,6 +60,7 @@ def test_subagent_start_payload_is_minimal(monkeypatch: pytest.MonkeyPatch) -> N
         {
             "session_id": "parent-1",
             "extra": {
+                "child_session_id": "child-session-7",
                 "child_subagent_id": "child-7",
                 "child_role": "researcher",
                 "child_goal": "Compare hooks",
@@ -70,6 +71,7 @@ def test_subagent_start_payload_is_minimal(monkeypatch: pytest.MonkeyPatch) -> N
 
     assert result == {}
     assert sent["extra"] == {
+        "child_session_id": "child-session-7",
         "child_subagent_id": "child-7",
         "child_role": "researcher",
         "child_goal": "Compare hooks",
@@ -116,6 +118,31 @@ def test_subagent_stop_removes_raw_tool_results(
         "child_status": "completed",
         "duration_ms": 125,
         "tool_call_history": [{"tool_name": "web.search", "status": "completed"}],
+    }
+
+
+def test_native_subagent_lifecycle_prefers_the_shared_child_session_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Native Hermes stops omit child_subagent_id but retain child_session_id."""
+    emitter = load_emitter(monkeypatch)
+    configure_hook(monkeypatch)
+    sent = capture_request(monkeypatch, emitter)
+
+    emitter.emit(
+        "subagent_stop",
+        {
+            "session_id": "parent-1",
+            "extra": {
+                "child_session_id": "child-session-7",
+                "child_status": "completed",
+            },
+        },
+    )
+
+    assert sent["extra"] == {
+        "child_session_id": "child-session-7",
+        "child_status": "completed",
     }
 
 
