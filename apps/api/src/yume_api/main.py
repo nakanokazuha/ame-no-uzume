@@ -85,6 +85,8 @@ def _runtime_paths() -> tuple[Path, Path, Path]:
 
 def _mount_static_resources(app: FastAPI) -> None:
     """Serve declarative asset packs and the built browser application after API routes."""
+    if app.state.static_resources_mounted:
+        return
     _, asset_pack_root, web_dist = _runtime_paths()
     app.mount(
         "/asset-packs",
@@ -96,6 +98,7 @@ def _mount_static_resources(app: FastAPI) -> None:
         StaticFiles(directory=_workspace_path(web_dist), html=True, check_dir=True),
         name="web",
     )
+    app.state.static_resources_mounted = True
 
 
 def _workspace_path(path: Path) -> Path:
@@ -118,6 +121,22 @@ def _set_runtime_state(app: FastAPI, runtime: AppRuntime) -> None:
             if not app.state.hook_router_registered:
                 app.include_router(hook_router, prefix="/api")
                 app.state.hook_router_registered = True
+
+
+def _set_diagnostic_retry(app: FastAPI) -> None:
+    """Keep diagnostics retryable before a valid Hermes runtime exists."""
+
+    async def retry_diagnostic() -> Diagnostic:
+        """Keep invalid configuration and assets diagnostic-only until corrected."""
+        return app.state.diagnostic
+
+    app.state.retry_hermes = retry_diagnostic
+
+
+def _initialize_supplied_runtime(app: FastAPI, runtime: AppRuntime | None) -> None:
+    """Expose an injected test runtime before routes are assembled."""
+    if runtime is not None:
+        _set_runtime_state(app, runtime)
 
 
 def _start_job_poller(app: FastAPI, runtime: AppRuntime) -> None:
@@ -169,10 +188,12 @@ def create_app(*, runtime: AppRuntime | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         active_runtime = _startup_runtime(app, runtime)
         if active_runtime is None:
+            _mount_static_resources(app)
             yield
             return
 
         _set_runtime_state(app, active_runtime)
+        _mount_static_resources(app)
         app.state.diagnostic = Diagnostic.ready()
 
         async def retry_hermes() -> Diagnostic:
@@ -207,14 +228,10 @@ def create_app(*, runtime: AppRuntime | None = None) -> FastAPI:
     app.state.task_submission_lock = asyncio.Lock()
     app.state.diagnostic = Diagnostic.ready()
     app.state.hook_router_registered = False
+    app.state.static_resources_mounted = False
 
-    async def retry_diagnostic() -> Diagnostic:
-        """Keep invalid configuration and assets diagnostic-only until they are corrected."""
-        return app.state.diagnostic
-
-    app.state.retry_hermes = retry_diagnostic
-    if runtime is not None:
-        _set_runtime_state(app, runtime)
+    _set_diagnostic_retry(app)
+    _initialize_supplied_runtime(app, runtime)
 
     @app.middleware("http")
     async def hide_disabled_hook(
@@ -232,7 +249,8 @@ def create_app(*, runtime: AppRuntime | None = None) -> FastAPI:
     app.include_router(api_router)
     app.include_router(websocket_router)
     app.include_router(diagnostics_router)
-    _mount_static_resources(app)
+    if runtime is not None:
+        _mount_static_resources(app)
     return app
 
 

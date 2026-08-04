@@ -12,6 +12,7 @@ import pytest
 import pytest_asyncio
 from pydantic import SecretStr
 
+import yume_api.main as main_module
 from yume_api.hermes.models import HermesCapabilities
 from yume_api.integrations.hook_models import HookEnvelope
 from yume_api.integrations.hook_receiver import HookReceiver
@@ -175,6 +176,37 @@ async def test_hook_is_not_exposed_without_a_nonempty_token(hook_token: SecretSt
 
     assert response.status_code == 404
     assert "/api/integrations/hermes/events" not in app.openapi()["paths"]
+
+
+@pytest.mark.asyncio
+async def test_production_lifespan_registers_enabled_hook_before_static_mount(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The production startup path reaches the enabled hook route before static files."""
+    runtime = HookRuntime(SecretStr("hook-secret"))
+    runtime.hermes = AsyncMock()
+    runtime.hermes.get_capabilities.return_value = HermesCapabilities()
+
+    def startup_runtime(_app: object, supplied_runtime: AppRuntime | None) -> AppRuntime:
+        assert supplied_runtime is None
+        return cast("AppRuntime", runtime)
+
+    monkeypatch.setattr(main_module, "_startup_runtime", startup_runtime)
+    app = create_app()
+    transport = httpx.ASGITransport(app=app)
+
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=transport, base_url="http://test") as client,
+    ):
+        response = await client.post(
+            "/api/integrations/hermes/events",
+            headers={"Authorization": "Bearer hook-secret"},
+            json=SAMPLE_START_ENVELOPE,
+        )
+
+    assert response.json() == {"accepted": True}
+    assert runtime.world.ingest_hook.await_count == 1
 
 
 def test_hook_receiver_accepts_one_event_when_calls_interleave() -> None:
