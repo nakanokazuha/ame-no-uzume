@@ -10,10 +10,12 @@ MAX_SESSION_ID_LENGTH = 256
 MAX_CHILD_SUBAGENT_ID_LENGTH = 256
 MAX_CHILD_ROLE_LENGTH = 64
 MAX_CHILD_GOAL_LENGTH = 1_000
+MAX_CHILD_STATUS_LENGTH = 64
 SAFE_EXTRA_LENGTHS = {
     "child_subagent_id": MAX_CHILD_SUBAGENT_ID_LENGTH,
     "child_role": MAX_CHILD_ROLE_LENGTH,
     "child_goal": MAX_CHILD_GOAL_LENGTH,
+    "child_status": MAX_CHILD_STATUS_LENGTH,
 }
 UNSUPPORTED_EXTRA_FIELD_MESSAGE = "hook extra contains an unsupported field"
 INVALID_EXTRA_VALUE_MESSAGE = "hook extra value is empty or exceeds its limit"

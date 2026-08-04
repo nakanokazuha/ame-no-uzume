@@ -530,6 +530,10 @@ async def test_world_service_resets_normalizer_before_and_after_a_task_stream() 
             del event, sequence
             return []
 
+        def normalize_hook(self, envelope: object, sequence: int) -> list[WorldEvent]:
+            del envelope, sequence
+            return []
+
     normalizer = RecordingNormalizer()
     world = WorldService(
         FakeSession(),

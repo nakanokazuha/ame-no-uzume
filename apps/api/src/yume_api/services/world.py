@@ -14,6 +14,7 @@ from yume_api.contracts.factories import (
 )
 from yume_api.domain.reducer import WorldReducer
 from yume_api.hermes.models import HermesCapabilities, HermesJob, HermesStreamEvent
+from yume_api.integrations.hook_models import HookEnvelope
 from yume_api.services.jobs import JobSynchronizer
 
 SUBSCRIBER_QUEUE_SIZE = 100
@@ -60,6 +61,9 @@ class WorldNormalizer(Protocol):
 
     def normalize(self, event: HermesStreamEvent, sequence: int) -> list[WorldEvent]:
         """Return zero or more normalized events for one raw event."""
+
+    def normalize_hook(self, envelope: HookEnvelope, sequence: int) -> list[WorldEvent]:
+        """Return zero or more normalized events for one verified hook envelope."""
 
 
 class WorldSubscription:
@@ -241,6 +245,16 @@ class WorldService:
         finally:
             self._normalizer.reset()
         return session_id
+
+    async def ingest_hook(self, envelope: HookEnvelope) -> None:
+        """Publish verified enhanced lifecycle telemetry from an accepted Hermes hook."""
+        if self._reducer.snapshot.telemetry_mode != "enhanced":
+            snapshot = self._reducer.snapshot.model_copy(
+                update={"telemetry_mode": "enhanced"}, deep=True
+            )
+            await self.publish(make_snapshot_event(snapshot))
+        for event in self._normalizer.normalize_hook(envelope, self._reducer.snapshot.sequence + 1):
+            await self.publish(event)
 
     def release_task_reservation(self) -> None:
         """Release a completed or abandoned task admission reservation."""

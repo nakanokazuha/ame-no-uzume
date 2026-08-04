@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from yume_api.contracts.events import AgentSpawnedEvent, WorldEvent
     from yume_api.domain.room_policy import RoomPolicy
     from yume_api.hermes.models import HermesStreamEvent
+    from yume_api.integrations.hook_models import HookEnvelope
 
 
 def delegated_agent_id(data: dict[str, Any]) -> str | None:
@@ -53,6 +54,27 @@ def make_delegated_spawn(data: dict[str, Any], sequence: int) -> AgentSpawnedEve
     )
 
 
+def humanize_role(role: str) -> str:
+    """Turn a hook-supplied role identifier into a concise display name."""
+    return role.replace("_", " ").title()
+
+
+def make_subagent_exit_events(
+    agent_id: str, *, failed: bool, sequence: int, source: str
+) -> list[WorldEvent]:
+    """Create the terminal lifecycle events for a hook-observed worker."""
+    return [
+        make_agent_state(
+            agent_id,
+            "failed" if failed else "completed",
+            "work",
+            sequence,
+            source=source,
+        ),
+        make_agent_removed(agent_id, sequence + 1, source=source),
+    ]
+
+
 class HermesNormalizer:
     """Map known Hermes activity to verified dashboard events without speculation."""
 
@@ -74,6 +96,33 @@ class HermesNormalizer:
         """Normalize one Hermes event, ignoring unknown or incomplete telemetry."""
         handler = self._handlers.get(event.event)
         return handler(event.data, sequence) if handler else []
+
+    def normalize_hook(self, envelope: HookEnvelope, sequence: int) -> list[WorldEvent]:
+        """Normalize one bounded lifecycle hook into verified worker telemetry."""
+        child_id = envelope.extra.get("child_subagent_id")
+        if child_id is None:
+            return []
+        agent_id = f"delegated:{child_id}"
+        if envelope.event == "subagent_start":
+            role = envelope.extra.get("child_role")
+            return [
+                make_agent_spawned(
+                    agent_id,
+                    "delegated",
+                    humanize_role(role) if role else "Delegated Worker",
+                    "lobby",
+                    sequence,
+                    task_summary=envelope.extra.get("child_goal"),
+                    source="hermes.hook",
+                )
+            ]
+        status = envelope.extra.get("child_status", "error")
+        return make_subagent_exit_events(
+            agent_id,
+            failed=status != "completed",
+            sequence=sequence,
+            source="hermes.hook",
+        )
 
     def reset(self) -> None:
         """Discard native assistant text accumulated for the current task stream."""
