@@ -191,4 +191,60 @@ describe("world store", () => {
     expect(store.getState().agents).toEqual([]);
     expect(store.getState().sequence).toBe(3);
   });
+
+  it.each(["stream-first", "hook-first"])(
+    "keeps one enriched worker for the exact child ID when events arrive %s",
+    (arrivalOrder) => {
+      const store = createWorldStore();
+      const streamEvent = {
+        ...baseEvent,
+        event_id: "stream-spawn",
+        sequence: arrivalOrder === "stream-first" ? 1 : 2,
+        source: "hermes.session_stream",
+        type: "agent.spawned" as const,
+        agent_id: "delegated:child-7",
+        payload: {
+          kind: "delegated" as const,
+          display_name: "Delegated Worker",
+          status: "entering" as const,
+          room: "lobby" as const,
+        },
+      };
+      const hookEvent = {
+        ...baseEvent,
+        event_id: "hook-spawn",
+        sequence: arrivalOrder === "hook-first" ? 1 : 2,
+        source: "hermes.hook",
+        type: "agent.spawned" as const,
+        agent_id: "delegated:child-7",
+        payload: {
+          kind: "delegated" as const,
+          display_name: "Researcher",
+          status: "entering" as const,
+          room: "lobby" as const,
+          task_summary: "Compare Hermes event hooks",
+        },
+      };
+
+      if (arrivalOrder === "stream-first") {
+        store.getState().applyEvent(streamEvent);
+        store.getState().applyEvent(hookEvent);
+      } else {
+        store.getState().applyEvent(hookEvent);
+        store.getState().applyEvent(streamEvent);
+      }
+
+      expect(store.getState().agents).toEqual([
+        {
+          agent_id: "delegated:child-7",
+          kind: "delegated",
+          display_name: "Researcher",
+          status: "entering",
+          room: "lobby",
+          evidence: "verified",
+          task_summary: "Compare Hermes event hooks",
+        },
+      ]);
+    },
+  );
 });

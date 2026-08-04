@@ -1,9 +1,9 @@
 """Bounded, non-sensitive payloads accepted from Hermes event hooks."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 MAX_EVENT_ID_LENGTH = 256
 MAX_SESSION_ID_LENGTH = 256
@@ -19,6 +19,7 @@ SAFE_EXTRA_LENGTHS = {
 }
 UNSUPPORTED_EXTRA_FIELD_MESSAGE = "hook extra contains an unsupported field"
 INVALID_EXTRA_VALUE_MESSAGE = "hook extra value is empty or exceeds its limit"
+MISSING_STOP_STATUS_MESSAGE = "subagent stop requires child_status"
 
 
 class HookEnvelope(BaseModel):
@@ -44,3 +45,10 @@ class HookEnvelope(BaseModel):
             if not value or len(value) > SAFE_EXTRA_LENGTHS[key]:
                 raise ValueError(INVALID_EXTRA_VALUE_MESSAGE)
         return extra
+
+    @model_validator(mode="after")
+    def validate_lifecycle_fields(self) -> Self:
+        """Require the status needed to make a verified stop-state claim."""
+        if self.event == "subagent_stop" and "child_status" not in self.extra:
+            raise ValueError(MISSING_STOP_STATUS_MESSAGE)
+        return self

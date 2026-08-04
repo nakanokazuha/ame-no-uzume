@@ -8,6 +8,7 @@ export type WorldState = WorldSnapshot & {
   streamingText: string;
   streamingMessageId: string | null;
   selectedAgentId: string | null;
+  hookOwnedAgentIds: ReadonlySet<string>;
   applyEvent: (event: WorldEvent) => void;
   selectAgent: (agentId: string | null) => void;
 };
@@ -23,6 +24,7 @@ const initialWorldState: Pick<
   | "streamingText"
   | "streamingMessageId"
   | "selectedAgentId"
+  | "hookOwnedAgentIds"
 > = {
   sequence: 0,
   connection: "starting",
@@ -33,6 +35,7 @@ const initialWorldState: Pick<
   streamingText: "",
   streamingMessageId: null,
   selectedAgentId: null,
+  hookOwnedAgentIds: new Set(),
 };
 
 function replaceSnapshot(state: WorldState, snapshot: WorldSnapshot): WorldState {
@@ -46,11 +49,28 @@ function replaceSnapshot(state: WorldState, snapshot: WorldSnapshot): WorldState
     conversation: snapshot.conversation ?? [],
     streamingText: "",
     streamingMessageId: null,
+    hookOwnedAgentIds: new Set(
+      [...state.hookOwnedAgentIds].filter((agentId) =>
+        snapshot.agents.some((agent) => agent.agent_id === agentId),
+      ),
+    ),
   };
 }
 
 function withSequence(state: WorldState, sequence: number): WorldState {
   return { ...state, sequence };
+}
+
+function hasAgentId(event: WorldEvent): event is Extract<WorldEvent, { agent_id: string }> {
+  return "agent_id" in event && typeof event.agent_id === "string";
+}
+
+function isHookOwnedStreamEvent(state: WorldState, event: WorldEvent): boolean {
+  return (
+    event.source === "hermes.session_stream" &&
+    hasAgentId(event) &&
+    state.hookOwnedAgentIds.has(event.agent_id)
+  );
 }
 
 export function reduceWorldEvent(state: WorldState, event: WorldEvent): WorldState {
@@ -97,6 +117,9 @@ export function reduceWorldEvent(state: WorldState, event: WorldEvent): WorldSta
       };
     }
     case "agent.spawned": {
+      if (isHookOwnedStreamEvent(state, event)) {
+        return withSequence(state, event.sequence);
+      }
       const agent: AgentView = {
         agent_id: event.agent_id,
         evidence: event.evidence,
@@ -104,10 +127,17 @@ export function reduceWorldEvent(state: WorldState, event: WorldEvent): WorldSta
       };
       return {
         ...withSequence(state, event.sequence),
-        agents: [...state.agents, agent],
+        agents: [...state.agents.filter((current) => current.agent_id !== event.agent_id), agent],
+        hookOwnedAgentIds:
+          event.source === "hermes.hook"
+            ? new Set([...state.hookOwnedAgentIds, event.agent_id])
+            : state.hookOwnedAgentIds,
       };
     }
     case "agent.state_changed":
+      if (isHookOwnedStreamEvent(state, event)) {
+        return withSequence(state, event.sequence);
+      }
       return {
         ...withSequence(state, event.sequence),
         agents: state.agents.map((agent) =>
@@ -115,6 +145,9 @@ export function reduceWorldEvent(state: WorldState, event: WorldEvent): WorldSta
         ),
       };
     case "agent.task_changed":
+      if (isHookOwnedStreamEvent(state, event)) {
+        return withSequence(state, event.sequence);
+      }
       return {
         ...withSequence(state, event.sequence),
         agents: state.agents.map((agent) =>
@@ -124,9 +157,18 @@ export function reduceWorldEvent(state: WorldState, event: WorldEvent): WorldSta
         ),
       };
     case "agent.removed":
+      if (isHookOwnedStreamEvent(state, event)) {
+        return withSequence(state, event.sequence);
+      }
       return {
         ...withSequence(state, event.sequence),
         agents: state.agents.filter((agent) => agent.agent_id !== event.agent_id),
+        hookOwnedAgentIds:
+          event.source === "hermes.hook"
+            ? new Set(
+                [...state.hookOwnedAgentIds].filter((agentId) => agentId !== event.agent_id),
+              )
+            : state.hookOwnedAgentIds,
       };
     case "approval.requested":
     case "approval.resolved":

@@ -21,6 +21,7 @@ class WorldReducer:
                 )
             ],
         )
+        self._hook_owned_agent_ids: set[str] = set()
 
     @property
     def snapshot(self) -> WorldSnapshot:
@@ -31,8 +32,14 @@ class WorldReducer:
         """Apply one event and return an independent snapshot copy."""
         if event.type == "snapshot.replaced":
             self._snapshot = event.payload.snapshot.model_copy(deep=True)
+            self._hook_owned_agent_ids.intersection_update(
+                agent.agent_id for agent in self._snapshot.agents
+            )
             return self.snapshot
         if event.sequence <= self._snapshot.sequence:
+            return self.snapshot
+
+        if self._is_hook_owned_stream_event(event):
             return self.snapshot
 
         agents = {agent.agent_id: agent for agent in self._snapshot.agents}
@@ -45,12 +52,16 @@ class WorldReducer:
                 evidence=event.evidence,
                 **event.payload.model_dump(),
             )
+            if event.source == "hermes.hook":
+                self._hook_owned_agent_ids.add(event.agent_id)
         elif event.type == "agent.state_changed" and event.agent_id in agents:
             agents[event.agent_id] = agents[event.agent_id].model_copy(
                 update=event.payload.model_dump(exclude_none=True)
             )
         elif event.type == "agent.removed" and event.agent_id != "yume":
             agents.pop(event.agent_id, None)
+            if event.source == "hermes.hook":
+                self._hook_owned_agent_ids.discard(event.agent_id)
         elif event.type == "connection.changed":
             connection = event.payload.status
         elif event.type == "conversation.user_added":
@@ -79,3 +90,17 @@ class WorldReducer:
             conversation=conversation,
         )
         return self.snapshot
+
+    def _is_hook_owned_stream_event(self, event: WorldEvent) -> bool:
+        """Return whether a generic stream event must not overwrite hook facts."""
+        if event.source != "hermes.session_stream":
+            return False
+        if event.type == "agent.spawned":
+            return event.agent_id in self._hook_owned_agent_ids
+        if event.type == "agent.state_changed":
+            return event.agent_id in self._hook_owned_agent_ids
+        if event.type == "agent.task_changed":
+            return event.agent_id in self._hook_owned_agent_ids
+        if event.type == "agent.removed":
+            return event.agent_id in self._hook_owned_agent_ids
+        return False

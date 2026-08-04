@@ -1,11 +1,14 @@
-from typing import cast
+import asyncio
+from typing import Literal, cast
 
 import pytest
+from pydantic import ValidationError
 
+from yume_api.contracts.events import AgentSpawnedEvent
 from yume_api.domain.normalizer import HermesNormalizer
 from yume_api.domain.reducer import WorldReducer
 from yume_api.domain.room_policy import RoomPolicy
-from yume_api.hermes.models import HermesCapabilities
+from yume_api.hermes.models import HermesCapabilities, HermesStreamEvent
 from yume_api.integrations.hook_models import HookEnvelope
 from yume_api.services.world import WorldClient, WorldService, WorldSession
 
@@ -37,6 +40,24 @@ def normalizer() -> HermesNormalizer:
     return HermesNormalizer(RoomPolicy([]))
 
 
+def stream_spawn(sequence: int) -> AgentSpawnedEvent:
+    events = normalizer().normalize(
+        HermesStreamEvent(
+            event="tool.started",
+            data={
+                "run_id": "run-1",
+                "tool_call_id": "call-1",
+                "tool_name": "delegate_task",
+                "child_subagent_id": "child-7",
+            },
+        ),
+        sequence,
+    )
+    spawned = events[0]
+    assert spawned.type == "agent.spawned"
+    return spawned
+
+
 def test_subagent_start_uses_verified_role_and_goal() -> None:
     events = normalizer().normalize_hook(start_envelope, sequence=20)
     spawned = events[0]
@@ -55,6 +76,16 @@ def test_subagent_stop_preserves_failure_status() -> None:
     ]
 
 
+def test_subagent_stop_requires_an_explicit_status() -> None:
+    with pytest.raises(ValidationError, match="subagent stop requires child_status"):
+        HookEnvelope.model_validate(
+            {
+                **failed_stop_envelope.model_dump(mode="json"),
+                "extra": {"child_subagent_id": "child-7"},
+            }
+        )
+
+
 def test_subagent_hook_without_an_explicit_child_id_is_ignored() -> None:
     envelope = HookEnvelope.model_validate(
         {
@@ -64,6 +95,25 @@ def test_subagent_hook_without_an_explicit_child_id_is_ignored() -> None:
     )
 
     assert normalizer().normalize_hook(envelope, sequence=20) == []
+
+
+@pytest.mark.parametrize("arrival_order", ["hook-first", "stream-first"])
+def test_explicit_child_id_keeps_hook_enrichment_for_both_arrival_orders(
+    arrival_order: Literal["hook-first", "stream-first"],
+) -> None:
+    hook_first = arrival_order == "hook-first"
+    reducer = WorldReducer()
+    hook_spawn = normalizer().normalize_hook(start_envelope, sequence=1 if hook_first else 2)[0]
+    stream = stream_spawn(sequence=2 if hook_first else 1)
+
+    for event in (hook_spawn, stream) if hook_first else (stream, hook_spawn):
+        reducer.apply(event)
+
+    assert [
+        (agent.agent_id, agent.display_name, agent.task_summary)
+        for agent in reducer.snapshot.agents
+        if agent.agent_id.startswith("delegated:")
+    ] == [("delegated:child-7", "Researcher", "Compare Hermes event hooks")]
 
 
 @pytest.mark.asyncio
@@ -76,12 +126,45 @@ async def test_accepted_hook_enables_enhanced_telemetry_without_changing_standar
         HermesCapabilities(),
     )
 
-    assert service.snapshot().telemetry_mode == "standard"
+    initial_snapshot, subscription = service.subscribe()
+    assert initial_snapshot.telemetry_mode == "standard"
+    assert initial_snapshot.sequence == 0
 
     await service.ingest_hook(start_envelope)
 
+    enhanced_snapshot = await subscription.__anext__()
+    spawned = await subscription.__anext__()
     snapshot = service.snapshot()
     worker = next(agent for agent in snapshot.agents if agent.agent_id == "delegated:child-7")
+    assert enhanced_snapshot.type == "snapshot.replaced"
+    assert enhanced_snapshot.sequence == enhanced_snapshot.payload.snapshot.sequence == 1
+    assert spawned.type == "agent.spawned"
+    assert spawned.sequence == 2
     assert snapshot.telemetry_mode == "enhanced"
     assert worker.display_name == "Researcher"
     assert worker.task_summary == "Compare Hermes event hooks"
+
+
+@pytest.mark.asyncio
+async def test_hook_owned_worker_suppresses_later_same_identity_stream_events() -> None:
+    service = WorldService(
+        cast("WorldSession", object()),
+        cast("WorldClient", object()),
+        normalizer(),
+        WorldReducer(),
+        HermesCapabilities(),
+    )
+    _, subscription = service.subscribe()
+
+    await service.ingest_hook(start_envelope)
+    await subscription.__anext__()
+    await subscription.__anext__()
+    await service.publish(stream_spawn(service.snapshot().sequence + 1))
+
+    worker = next(
+        agent for agent in service.snapshot().agents if agent.agent_id == "delegated:child-7"
+    )
+    assert worker.display_name == "Researcher"
+    assert worker.task_summary == "Compare Hermes event hooks"
+    with pytest.raises(asyncio.QueueEmpty):
+        subscription._queue.get_nowait()  # noqa: SLF001

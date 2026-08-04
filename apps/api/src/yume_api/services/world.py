@@ -210,7 +210,13 @@ class WorldService:
 
     async def publish(self, event: WorldEvent) -> None:
         """Apply an event and publish it without letting slow browsers grow memory."""
+        previous_sequence = self._reducer.snapshot.sequence
         self._reducer.apply(event)
+        if (
+            event.type != "snapshot.replaced"
+            and self._reducer.snapshot.sequence == previous_sequence
+        ):
+            return
         for subscriber in self._subscribers:
             if subscriber.full():
                 subscriber.get_nowait()
@@ -250,7 +256,11 @@ class WorldService:
         """Publish verified enhanced lifecycle telemetry from an accepted Hermes hook."""
         if self._reducer.snapshot.telemetry_mode != "enhanced":
             snapshot = self._reducer.snapshot.model_copy(
-                update={"telemetry_mode": "enhanced"}, deep=True
+                update={
+                    "telemetry_mode": "enhanced",
+                    "sequence": self._reducer.snapshot.sequence + 1,
+                },
+                deep=True,
             )
             await self.publish(make_snapshot_event(snapshot))
         for event in self._normalizer.normalize_hook(envelope, self._reducer.snapshot.sequence + 1):

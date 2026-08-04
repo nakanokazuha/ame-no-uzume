@@ -24,7 +24,10 @@ if TYPE_CHECKING:
 
 
 def delegated_agent_id(data: dict[str, Any]) -> str | None:
-    """Return the generic delegated worker ID when Hermes supplied both identifiers."""
+    """Return an explicit child ID before falling back to the generic stream identity."""
+    child_subagent_id = data.get("child_subagent_id")
+    if isinstance(child_subagent_id, str) and child_subagent_id:
+        return f"delegated:{child_subagent_id}"
     run_id = data.get("run_id")
     tool_call_id = data.get("tool_call_id")
     if not run_id or not tool_call_id:
@@ -116,7 +119,9 @@ class HermesNormalizer:
                     source="hermes.hook",
                 )
             ]
-        status = envelope.extra.get("child_status", "error")
+        status = envelope.extra.get("child_status")
+        if status is None:
+            return []
         return make_subagent_exit_events(
             agent_id,
             failed=status != "completed",
