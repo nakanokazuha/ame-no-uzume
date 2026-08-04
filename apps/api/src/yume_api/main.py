@@ -11,12 +11,12 @@ from typing import cast
 import httpx
 import yaml
 from fastapi import FastAPI
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 from starlette.staticfiles import StaticFiles
 
 from yume_api.api.diagnostics import Diagnostic
 from yume_api.api.diagnostics import router as diagnostics_router
-from yume_api.api.routes import HermesCommands
+from yume_api.api.routes import HermesCommands, hook_router
 from yume_api.api.routes import router as api_router
 from yume_api.api.websocket import router as websocket_router
 from yume_api.assets.models import PackManifest
@@ -28,6 +28,7 @@ from yume_api.domain.reducer import WorldReducer
 from yume_api.domain.room_policy import RoomPolicy
 from yume_api.hermes.client import HermesClient
 from yume_api.hermes.models import HermesCapabilities
+from yume_api.integrations.hook_receiver import HookReceiver
 from yume_api.services.session import SessionService
 from yume_api.services.world import WorldService
 from yume_api.settings import Settings
@@ -47,6 +48,7 @@ class AppRuntime:
     world: WorldService
     capabilities: HermesCapabilities
     asset_pack: PackManifest
+    hook_token: SecretStr | None = None
     close_hermes: bool = False
 
 
@@ -65,6 +67,7 @@ def _build_runtime(config: DashboardConfig, asset_pack: PackManifest) -> AppRunt
         world=world,
         capabilities=capabilities,
         asset_pack=asset_pack,
+        hook_token=settings.hook_token,
         close_hermes=True,
     )
 
@@ -106,6 +109,10 @@ def _set_runtime_state(app: FastAPI, runtime: AppRuntime) -> None:
     app.state.world = runtime.world
     app.state.capabilities = runtime.capabilities
     app.state.asset_pack = runtime.asset_pack
+    if runtime.hook_token is not None:
+        hook_token = runtime.hook_token.get_secret_value()
+        if hook_token:
+            app.state.hook_receiver = HookReceiver(hook_token)
 
 
 def _start_job_poller(app: FastAPI, runtime: AppRuntime) -> None:
@@ -208,6 +215,7 @@ def create_app(*, runtime: AppRuntime | None = None) -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(api_router)
+    app.include_router(hook_router, prefix="/api")
     app.include_router(websocket_router)
     app.include_router(diagnostics_router)
     _mount_static_resources(app)

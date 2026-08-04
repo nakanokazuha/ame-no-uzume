@@ -2,14 +2,16 @@
 
 import asyncio
 import logging
-from typing import Annotated, Protocol
+from typing import Annotated, Protocol, cast
 
-from fastapi import APIRouter, HTTPException, Path, Request, status
+from fastapi import APIRouter, Header, HTTPException, Path, Request, status
 from pydantic import BaseModel, Field, StrictBool, StrictStr
 
 from yume_api.assets.models import PackManifest
 from yume_api.contracts.events import WorldSnapshot
 from yume_api.hermes.models import HermesCapabilities
+from yume_api.integrations.hook_models import HookEnvelope
+from yume_api.integrations.hook_receiver import HookReceiver
 from yume_api.services.world import (
     TASK_ALREADY_RUNNING_MESSAGE,
     WorldService,
@@ -17,6 +19,7 @@ from yume_api.services.world import (
 )
 
 router = APIRouter(prefix="/api")
+hook_router = APIRouter()
 MAX_TASK_TEXT_LENGTH = 20_000
 MAX_IDENTIFIER_LENGTH = 200
 logger = logging.getLogger(__name__)
@@ -30,6 +33,13 @@ class HermesCommands(Protocol):
 
     async def resolve_approval(self, run_id: str, approval_id: str, *, approved: bool) -> None:
         """Resolve one pending Hermes approval."""
+
+
+class HookEvents(Protocol):
+    """Bounded hook events accepted by the next observability enhancement step."""
+
+    async def ingest_hook(self, envelope: HookEnvelope) -> None:
+        """Ingest one authenticated, deduplicated hook envelope."""
 
 
 class BootstrapResponse(BaseModel):
@@ -67,6 +77,17 @@ def _capabilities(request: Request) -> HermesCapabilities:
 
 def _hermes(request: Request) -> HermesCommands:
     return request.app.state.hermes
+
+
+def _hook_receiver(request: Request) -> HookReceiver:
+    try:
+        return request.app.state.hook_receiver
+    except AttributeError as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "hook ingestion is unavailable") from error
+
+
+def _hook_events(request: Request) -> HookEvents:
+    return cast("HookEvents", _world(request))
 
 
 @router.get("/bootstrap")
@@ -138,6 +159,25 @@ async def resolve_approval(
         raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, "Hermes run approval is unavailable")
     await _hermes(request).resolve_approval(run_id, body.approval_id, approved=body.approved)
     return {"status": "resolved"}
+
+
+@hook_router.post("/integrations/hermes/events")
+async def ingest_hook(
+    envelope: HookEnvelope,
+    request: Request,
+    authorization: Annotated[str | None, Header()] = None,
+) -> dict[str, bool]:
+    """Authenticate, deduplicate, and forward a bounded Hermes lifecycle event."""
+    receiver = _hook_receiver(request)
+    token = (authorization or "").removeprefix("Bearer ").strip()
+    try:
+        receiver.authenticate(token)
+    except PermissionError as error:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid hook token") from error
+    if not receiver.accept(envelope):
+        return {"accepted": False}
+    await _hook_events(request).ingest_hook(envelope)
+    return {"accepted": True}
 
 
 def _complete_background_task(

@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     hermes_api_key: SecretStr
+    hook_token: SecretStr | None = None
     hermes_base_url: str = "http://127.0.0.1:8642"
     dashboard_config: Path = Path("/config/dashboard.yaml")
     asset_pack_root: Path = Path("/asset-packs")
