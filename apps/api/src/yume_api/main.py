@@ -2,7 +2,7 @@
 
 import asyncio
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,8 +10,9 @@ from typing import cast
 
 import httpx
 import yaml
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from pydantic import SecretStr, ValidationError
+from starlette.responses import JSONResponse, Response
 from starlette.staticfiles import StaticFiles
 
 from yume_api.api.diagnostics import Diagnostic
@@ -38,6 +39,7 @@ DEFAULT_ASSET_PACK_ROOT = Path("asset-packs")
 DEFAULT_WEB_DIST = Path("apps/web/dist")
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 SESSION_STATE_FILENAME = "yume-session.json"
+HOOK_EVENTS_PATH = "/api/integrations/hermes/events"
 
 
 @dataclass(slots=True)
@@ -113,6 +115,9 @@ def _set_runtime_state(app: FastAPI, runtime: AppRuntime) -> None:
         hook_token = runtime.hook_token.get_secret_value()
         if hook_token:
             app.state.hook_receiver = HookReceiver(hook_token)
+            if not app.state.hook_router_registered:
+                app.include_router(hook_router, prefix="/api")
+                app.state.hook_router_registered = True
 
 
 def _start_job_poller(app: FastAPI, runtime: AppRuntime) -> None:
@@ -201,6 +206,7 @@ def create_app(*, runtime: AppRuntime | None = None) -> FastAPI:
     app.state.background_tasks = set()
     app.state.task_submission_lock = asyncio.Lock()
     app.state.diagnostic = Diagnostic.ready()
+    app.state.hook_router_registered = False
 
     async def retry_diagnostic() -> Diagnostic:
         """Keep invalid configuration and assets diagnostic-only until they are corrected."""
@@ -210,12 +216,20 @@ def create_app(*, runtime: AppRuntime | None = None) -> FastAPI:
     if runtime is not None:
         _set_runtime_state(app, runtime)
 
+    @app.middleware("http")
+    async def hide_disabled_hook(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        """Keep the optional hook path absent despite the root static-file mount."""
+        if request.url.path == HOOK_EVENTS_PATH and not hasattr(app.state, "hook_receiver"):
+            return JSONResponse(status_code=404, content={"detail": "Not Found"})
+        return await call_next(request)
+
     @app.get("/api/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
     app.include_router(api_router)
-    app.include_router(hook_router, prefix="/api")
     app.include_router(websocket_router)
     app.include_router(diagnostics_router)
     _mount_static_resources(app)

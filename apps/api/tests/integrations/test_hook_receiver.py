@@ -1,7 +1,10 @@
 """Integration tests for authenticated Hermes hook ingestion."""
 
 from collections.abc import AsyncIterator
-from typing import cast
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import suppress
+from threading import Barrier, BrokenBarrierError
+from typing import TYPE_CHECKING, cast
 from unittest.mock import AsyncMock
 
 import httpx
@@ -10,7 +13,12 @@ import pytest_asyncio
 from pydantic import SecretStr
 
 from yume_api.hermes.models import HermesCapabilities
+from yume_api.integrations.hook_models import HookEnvelope
+from yume_api.integrations.hook_receiver import HookReceiver
 from yume_api.main import AppRuntime, create_app
+
+if TYPE_CHECKING:
+    from cachetools import TTLCache
 
 SAMPLE_EXTRA = {
     "child_subagent_id": "child-7",
@@ -37,6 +45,26 @@ class HookRuntime:
         self.asset_pack = object()
         self.hook_token = hook_token
         self.close_hermes = False
+
+
+class InterleavingCache:
+    """Force competing callers to observe membership before either writes."""
+
+    def __init__(self, workers: int) -> None:
+        self._barrier = Barrier(workers)
+        self._values: set[str] = set()
+
+    def __contains__(self, event_id: object) -> bool:
+        if not isinstance(event_id, str):
+            return False
+        is_seen = event_id in self._values
+        with suppress(BrokenBarrierError):
+            self._barrier.wait(timeout=0.02)
+        return is_seen
+
+    def __setitem__(self, event_id: str, value: bool) -> None:
+        del value
+        self._values.add(event_id)
 
 
 @pytest_asyncio.fixture
@@ -137,11 +165,26 @@ async def test_hook_rejects_overlong_allowed_extra(
 
 
 @pytest.mark.asyncio
-async def test_hook_is_not_exposed_without_a_token() -> None:
+@pytest.mark.parametrize("hook_token", [None, SecretStr("")])
+async def test_hook_is_not_exposed_without_a_nonempty_token(hook_token: SecretStr | None) -> None:
     """Optional hook integration is absent unless the operator configures a token."""
-    app = create_app(runtime=cast("AppRuntime", HookRuntime(None)))
+    app = create_app(runtime=cast("AppRuntime", HookRuntime(hook_token)))
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        response = await client.post("/api/integrations/hermes/events", json=SAMPLE_START_ENVELOPE)
+        response = await client.post("/api/integrations/hermes/events", json={"event": "invalid"})
 
     assert response.status_code == 404
+    assert "/api/integrations/hermes/events" not in app.openapi()["paths"]
+
+
+def test_hook_receiver_accepts_one_event_when_calls_interleave() -> None:
+    """Concurrent duplicates are acknowledged once even if cache reads interleave."""
+    workers = 8
+    receiver = HookReceiver("hook-secret")
+    receiver._seen = cast("TTLCache[str, bool]", InterleavingCache(workers))  # noqa: SLF001
+    envelope = HookEnvelope.model_validate(SAMPLE_START_ENVELOPE)
+
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        accepted = list(executor.map(receiver.accept, [envelope] * workers))
+
+    assert accepted.count(True) == 1

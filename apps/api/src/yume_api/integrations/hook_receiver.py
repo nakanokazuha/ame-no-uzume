@@ -1,6 +1,7 @@
 """Authentication and bounded replay protection for Hermes hook events."""
 
 import hmac
+from threading import Lock
 
 from cachetools import TTLCache
 
@@ -19,6 +20,7 @@ class HookReceiver:
         self._seen: TTLCache[str, bool] = TTLCache(
             maxsize=MAX_SEEN_EVENT_IDS, ttl=SEEN_EVENT_TTL_SECONDS
         )
+        self._lock = Lock()
 
     def authenticate(self, token: str) -> None:
         """Require a constant-time match against the server-side hook secret."""
@@ -27,7 +29,8 @@ class HookReceiver:
 
     def accept(self, envelope: HookEnvelope) -> bool:
         """Return whether this event ID has not already been acknowledged."""
-        if envelope.event_id in self._seen:
-            return False
-        self._seen[envelope.event_id] = True
-        return True
+        with self._lock:
+            if envelope.event_id in self._seen:
+                return False
+            self._seen[envelope.event_id] = True
+            return True

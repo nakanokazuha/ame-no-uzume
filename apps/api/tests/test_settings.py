@@ -5,7 +5,9 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from yume_api.main import _runtime_paths
+from yume_api.assets.validator import load_and_validate_pack
+from yume_api.config.loader import load_dashboard_config
+from yume_api.main import _build_runtime, _runtime_paths
 from yume_api.settings import Settings
 
 
@@ -25,6 +27,26 @@ def test_settings_redacts_hermes_api_key_in_repr(
     monkeypatch.setenv("HERMES_API_KEY", "super-secret")
 
     assert "super-secret" not in repr(Settings())
+
+
+def test_settings_configures_hook_runtime_from_yume_hook_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Use the explicitly named operator environment variable for the hook bridge."""
+    monkeypatch.setenv("HERMES_API_KEY", "hermes-secret")
+    monkeypatch.setenv("YUME_HOOK_TOKEN", "configured-hook-secret")
+    monkeypatch.setenv("HOOK_TOKEN", "wrong-token-name")
+
+    settings = Settings()
+    config = load_dashboard_config(Path("config/dashboard.example.yaml"))
+    asset_pack = load_and_validate_pack(Path("asset-packs") / config.asset_pack)
+    runtime = _build_runtime(config, asset_pack)
+
+    assert settings.hook_token is not None
+    assert settings.hook_token.get_secret_value() == "configured-hook-secret"
+    assert runtime.hook_token is not None
+    assert runtime.hook_token.get_secret_value() == "configured-hook-secret"
+    assert "configured-hook-secret" not in repr(settings)
 
 
 def test_runtime_paths_remain_source_tree_defaults_with_credential(
